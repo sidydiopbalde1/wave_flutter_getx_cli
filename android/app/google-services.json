@@ -1,0 +1,82 @@
+{
+  "project_info": {
+    "project_number": "304329472585",
+    "project_id": "wavegetx",
+    "storage_bucket": "wavegetx.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:304329472585:android:d1a19824a49ff4aa0c1d98",
+        "android_client_info": {
+          "package_name": "com.example.wave_getx_cli"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "304329472585-sal8argfamnjo27bsfh3lf91topjoin5.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBz3CXn9lafQiYJKL0TjkWwFtOzonYoaDI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "304329472585-sal8argfamnjo27bsfh3lf91topjoin5.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "304329472585-e9sbj8b4aql2en7q0o16s55kbidshmvp.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.waveGetxCli"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:304329472585:android:9b47ec3a5bd05dc60c1d98",
+        "android_client_info": {
+          "package_name": "com.wave_getx_cli_v2.wave_getx_cli_v2"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "304329472585-sal8argfamnjo27bsfh3lf91topjoin5.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBz3CXn9lafQiYJKL0TjkWwFtOzonYoaDI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "304329472585-sal8argfamnjo27bsfh3lf91topjoin5.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "304329472585-e9sbj8b4aql2en7q0o16s55kbidshmvp.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.waveGetxCli"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
