@@ -7,35 +7,69 @@ class HomeView extends GetView<HomeController> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.grey[100], // Fond légèrement gris
       appBar: AppBar(
-        title: const Text('Accueil'),
+        backgroundColor: Colors.blue[600], // Couleur d'app bar personnalisée
+        elevation: 0,
+        title: Text(
+          'Accueil', 
+          style: TextStyle(
+            fontWeight: FontWeight.bold, 
+            color: Colors.white
+          ),
+        ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.logout),
+            icon: const Icon(Icons.logout, color: Colors.white),
             onPressed: () {
-              // Ajoutez ici la logique de déconnexion
-              // controller.logout();
+              // Appel de la méthode de déconnexion
+              controller.signOut();
             },
           ),
         ],
       ),
-      body: Column(
-        children: [
-          Obx(() => _buildBalanceSection()),
-          _buildServicesGrid(),
-          // _buildTransactionsList(),
-        ],
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Obx(() => _buildBalanceSection()),
+              const SizedBox(height: 16),
+              _buildServicesGrid(),
+            ],
+          ),
+        ),
       ),
     );
   }
 
-  /// Widget pour afficher le solde
   Widget _buildBalanceSection() {
-    return Card(
-      margin: const EdgeInsets.all(12.0),
-      elevation: 2.0,
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.blue[600]!, Colors.blue[400]!],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(15),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.blue.withOpacity(0.4),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
       child: ListTile(
-        title: const Text('Solde'),
+        title: Text(
+          'Solde',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -43,13 +77,18 @@ class HomeView extends GetView<HomeController> {
                   controller.isBalanceVisible.value
                       ? '${controller.balance.value.toStringAsFixed(2)} €'
                       : '****',
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    fontSize: 18, 
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white
+                  ),
                 )),
             IconButton(
               icon: Icon(
                 controller.isBalanceVisible.value
                     ? Icons.visibility
                     : Icons.visibility_off,
+                color: Colors.white,
               ),
               onPressed: controller.toggleBalanceVisibility,
             ),
@@ -59,86 +98,54 @@ class HomeView extends GetView<HomeController> {
     );
   }
 
-  /// Widget pour afficher la grille des services
   Widget _buildServicesGrid() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
-      child: GridView.count(
-        crossAxisCount: 3,
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        crossAxisSpacing: 8,
-        mainAxisSpacing: 8,
-        children: [
-          _buildServiceCard('Transfert', Icons.send, () => Get.to(() => TransferView())),
-          _buildServiceCard('Planifier', Icons.schedule, () {
-            // Ajouter la navigation pour planification
-          }),
-          _buildServiceCard('Historique', Icons.history, () {
-            // Ajouter la navigation pour historique
-          }),
-        ],
-      ),
+    return GridView.count(
+      crossAxisCount: 3,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      crossAxisSpacing: 16,
+      mainAxisSpacing: 16,
+      children: [
+        _buildServiceCard('Transfert', Icons.send, () => Get.to(() => TransferView())),
+        _buildServiceCard('Planifier', Icons.schedule, () {}),
+        _buildServiceCard('Historique', Icons.history, () {}),
+      ],
     );
   }
 
-  /// Widget pour un service individuel
   Widget _buildServiceCard(String title, IconData icon, VoidCallback onTap) {
     return GestureDetector(
       onTap: onTap,
-      child: Card(
-        elevation: 2.0,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(15),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withOpacity(0.2),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 32.0, color: Colors.blue),
+            Icon(icon, size: 40.0, color: Colors.blue[600]),
             const SizedBox(height: 8.0),
             Text(
               title,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 14.0, fontWeight: FontWeight.w500),
+              style: TextStyle(
+                fontSize: 14.0, 
+                fontWeight: FontWeight.w600,
+                color: Colors.blue[800]
+              ),
             ),
           ],
         ),
       ),
     );
   }
-
-  /// Widget pour la liste des transactions
-  // Widget _buildTransactionsList() {
-  //   return Expanded(
-  //     child: Obx(() {
-  //       final transactions = controller.transactions;
-  //       if (transactions.isEmpty) {
-  //         return const Center(
-  //           child: Text(
-  //             'Aucune transaction disponible',
-  //             style: TextStyle(color: Colors.grey),
-  //           ),
-  //         );
-  //       }
-  //       return ListView.builder(
-  //         padding: const EdgeInsets.all(12.0),
-  //         itemCount: transactions.length,
-  //         itemBuilder: (context, index) {
-  //           final transaction = transactions[index];
-  //           return Card(
-  //             margin: const EdgeInsets.symmetric(vertical: 8.0),
-  //             child: ListTile(
-  //               title: Text(transaction.id),
-  //               subtitle: Text(transaction.details),
-  //               trailing: Text(
-  //                 '${transaction.amount} €',
-  //                 style: TextStyle(
-  //                   color: transaction.amount < 0 ? Colors.red : Colors.green,
-  //                   fontWeight: FontWeight.bold,
-  //                 ),
-  //               ),
-  //             ),
-  //           );
-  //         },
-  //       );
-  //     }),
-  //   );
-  // }
 }

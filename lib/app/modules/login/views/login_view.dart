@@ -10,7 +10,7 @@ class LoginView extends GetView<AuthController> {
 
   // Clés de formulaire et contrôleurs
   final _formKey = GlobalKey<FormState>();
-  final _phoneController = TextEditingController();
+  final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final RxBool _isPasswordVisible = false.obs;
 
@@ -65,18 +65,20 @@ class LoginView extends GetView<AuthController> {
                     ),
                     const SizedBox(height: 40),
 
-                    // Champ Téléphone
+                    // Champ E-mail
                     FadeInDown(
                       delay: const Duration(milliseconds: 400),
                       duration: const Duration(milliseconds: 1500),
                       child: customTextField(
-                        controller: _phoneController,
-                        labelText: 'Téléphone',
-                        hintText: 'Entrez votre téléphone',
-                        prefixIcon: Icons.phone,
+                        controller: _emailController,
+                        labelText: 'E-mail',
+                        hintText: 'Entrez votre e-mail',
+                        prefixIcon: Icons.email,
                         validator: (value) {
                           if (value == null || value.isEmpty) {
-                            return 'Veuillez entrer votre téléphone';
+                            return 'Veuillez entrer votre e-mail';
+                          } else if (!GetUtils.isEmail(value)) {
+                            return 'Veuillez entrer un e-mail valide';
                           }
                           return null;
                         },
@@ -226,8 +228,9 @@ class LoginView extends GetView<AuthController> {
   // Méthode pour gérer la connexion
   void _onLoginPressed() {
     if (_formKey.currentState!.validate()) {
-      final phone = _phoneController.text;
-      controller.signInWithPhone(phone);
+      final email = _emailController.text;
+      final password = _passwordController.text;
+      controller.signInWithEmailAndPassword(email, password);
     }
   }
 }

@@ -30,7 +30,7 @@ class AuthController extends GetxController {
 
       // Vérification et ajout du code pays si nécessaire
       if (!phone.startsWith('+')) {
-        phone = '+221$phone'; // Ajout du code pays Sénégal
+        phone = '+221$phone'; // Ajout du code pays Sénégal par défaut
       }
 
       // Envoi du code de vérification via AuthService
@@ -80,6 +80,36 @@ class AuthController extends GetxController {
     }
   }
 
+  Future<void> signInWithEmailAndPassword(String email, String password) async {
+    try {
+      isLoading.value = true;
+
+      // Connexion via email et mot de passe
+      final UserCredential userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+
+      if (userCredential.user != null) {
+        Get.offAllNamed(Routes.HOME); // Redirection vers la page d'accueil
+      } else {
+        Get.snackbar(
+          'Erreur',
+          'Échec de la connexion, veuillez vérifier vos identifiants.',
+          snackPosition: SnackPosition.BOTTOM,
+        );
+      }
+    } catch (e) {
+      Get.snackbar(
+        'Erreur',
+        'Échec de la connexion: ${e.toString()}',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
   Future<void> signInWithGoogle() async {
     try {
       isLoading.value = true;
@@ -87,9 +117,9 @@ class AuthController extends GetxController {
       // Connexion via Google
       final User? user = await _authService.signInWithGoogle();
 
-      if (user != null) {
         Get.offAllNamed(Routes.HOME); // Redirection vers la page d'accueil
-      }
+      // if (user != null) {
+      // }
     } catch (e) {
       Get.snackbar(
         'Erreur',

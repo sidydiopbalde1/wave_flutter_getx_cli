@@ -6,6 +6,8 @@ import '../modules/home/bindings/home_binding.dart';
 import '../modules/home/views/home_view.dart';
 import '../modules/login/bindings/login_binding.dart';
 import '../modules/login/views/login_view.dart';
+import '../modules/register/bindings/register_binding.dart';
+import '../modules/register/views/register_view.dart';
 import '../modules/transfer/bindings/transfer_binding.dart';
 import '../modules/transfer/views/transfer_view.dart';
 
@@ -19,7 +21,7 @@ class AppPages {
   static final routes = [
     GetPage(
       name: _Paths.HOME,
-      page: () =>  HomeView(),
+      page: () => HomeView(),
       binding: HomeBinding(),
     ),
     GetPage(
@@ -29,13 +31,18 @@ class AppPages {
     ),
     GetPage(
       name: _Paths.AUTH,
-      page: () =>  AuthView(),
+      page: () => AuthView(),
       binding: AuthBinding(),
     ),
     GetPage(
       name: _Paths.TRANSFER,
-      page: () =>  TransferView(),
+      page: () => TransferView(),
       binding: TransferBinding(),
+    ),
+    GetPage(
+      name: _Paths.REGISTER,
+      page: () =>  RegisterView(),
+      binding: RegisterBinding(),
     ),
   ];
 }

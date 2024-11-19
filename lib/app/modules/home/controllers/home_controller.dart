@@ -1,6 +1,7 @@
 import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../../../routes/app_pages.dart';
 
 class HomeController extends GetxController {
   final RxBool isBalanceVisible = true.obs;
@@ -53,6 +54,18 @@ class HomeController extends GetxController {
       }
     } catch (e) {
       Get.snackbar('Erreur', 'Impossible de récupérer les transactions');
+    }
+  }
+  Future<void> signOut() async {
+    try {
+      await FirebaseAuth.instance.signOut();
+      Get.offAllNamed(Routes.LOGIN); // Redirection vers la page de login après déconnexion
+    } catch (e) {
+      Get.snackbar(
+        'Erreur',
+        'Échec de la déconnexion: ${e.toString()}',
+        snackPosition: SnackPosition.BOTTOM,
+      );
     }
   }
 }
