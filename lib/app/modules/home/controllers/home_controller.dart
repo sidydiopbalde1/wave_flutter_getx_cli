@@ -40,7 +40,7 @@ class HomeController extends GetxController {
       if (user != null) {
         final querySnapshot = await _firestore
             .collection('transactions')
-            .where('userId', isEqualTo: user.uid)
+            // .where('userId', isEqualTo: user.uid)
             .orderBy('timestamp', descending: true)
             .limit(20)
             .get();

@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:get/get.dart';
 import 'package:flutter/material.dart';
 import '../../../data/models/userModel.dart'; // Import du modèle UserModel
+import '../../../services/firebase_store_service.dart'; // Import du service FirestoreService
 
 class RegisterController extends GetxController {
   // Contrôleurs pour les champs de formulaire
@@ -12,63 +13,60 @@ class RegisterController extends GetxController {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
 
+  final FirestoreService _firestoreService = FirestoreService(); // Instance du service Firestore
   var isPasswordVisible = false.obs;
 
   // Méthode pour enregistrer un utilisateur
   Future<void> registerUser() async {
     try {
+      print('🔄 Tentative de création d\'un nouvel utilisateur avec email : ${emailController.text.trim()}'); // Log initial
+
       // Créer un utilisateur avec email et mot de passe
-      UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
-        email: emailController.text,
-        password: passwordController.text,
-      );
+      // UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+      //   email: emailController.text.trim(),
+      //   password: passwordController.text.trim(),
+      // );
+      print('✅ Utilisateur créé avec succès dans Firebase Authentication'); // Log après la création dans Firebase
 
       // Récupérer l'ID de l'utilisateur
-      User? user = userCredential.user;
-      if (user != null) {
-        // Enregistrer les informations supplémentaires dans Firestore
-        await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
-          'nom': nomController.text,
-          'prenom': prenomController.text,
-          'telephone': telephoneController.text,
-          'email': emailController.text,
-          'createdAt': FieldValue.serverTimestamp(),
-        });
+      // User? user = userCredential.user;
+      // print('user:  $user');
+      // Vérifier si l'utilisateur a été créé correctement
+      // if (user != null) {
+        // print('📋 UID utilisateur : ${user.uid}'); // Log UID de l'utilisateur
 
-        // Récupérer les données de l'utilisateur depuis Firestore
-        await fetchUserData(user.uid);
+        // Créer un modèle `UserModel`
+        UserModel userModel = UserModel(
+          id: DateTime.now().millisecondsSinceEpoch, // ID unique basé sur le timestamp
+          nom: nomController.text.trim(),
+          prenom: prenomController.text.trim(),
+          email: emailController.text.trim(),
+          telephone: telephoneController.text.trim(),
+          solde: 0.0,
+          codeSecret: '1234', // Définissez un code secret initial ou remplacez-le par une saisie utilisateur
+          role: 'client', // Assurez-vous que cela correspond à votre logique métier
+          createdAt: DateTime.now().toIso8601String(),
+          updatedAt: DateTime.now().toIso8601String(),
+        );
+
+        // Enregistrer les informations dans Firestore via le service
+        await _firestoreService.addDocument('users', userModel.toFirestore());
+        print('✅ Données utilisateur enregistrées dans Firestore avec succès'); // Log enregistrement Firestore
 
         // Afficher un message de succès
         Get.snackbar('Succès', 'Inscription réussie');
+        print('🎉 Inscription réussie, redirection vers la page de connexion'); // Log succès inscription
+
         // Naviguer vers l'écran de connexion ou l'écran principal
         Get.offAllNamed('/login');
-      }
+      // } else {
+      //   print('❌ Erreur : Utilisateur non trouvé après la création'); // Log si utilisateur introuvable
+      //   Get.snackbar('Erreur', 'Utilisateur introuvable.');
+      // }
     } catch (e) {
       // Gérer les erreurs
+      print('❌ Erreur lors de l\'inscription : $e'); // Log erreur
       Get.snackbar('Erreur', 'Erreur : ${e.toString()}');
-      print('Erreur lors de l\'inscription: $e');
-    }
-  }
-
-  // Méthode pour récupérer les données d'un utilisateur depuis Firestore
-  Future<void> fetchUserData(String userId) async {
-    try {
-      // Récupérer le document de l'utilisateur depuis Firestore
-      DocumentSnapshot userDoc = await FirebaseFirestore.instance.collection('users').doc(userId).get();
-
-      // Vérifier si le document existe
-      if (userDoc.exists) {
-        // Convertir les données du document en un modèle UserModel
-        UserModel user = UserModel.fromFirestore(userDoc.data() as Map<String, dynamic>);
-
-        // Afficher ou manipuler l'utilisateur
-        print('Utilisateur récupéré : ${user.nom} ${user.prenom}');
-        // Vous pouvez également sauvegarder cet utilisateur dans un état global ou le manipuler comme nécessaire
-      } else {
-        print('Utilisateur non trouvé');
-      }
-    } catch (e) {
-      print('Erreur de récupération des données de l\'utilisateur : $e');
     }
   }
 

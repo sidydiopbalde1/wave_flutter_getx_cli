@@ -36,4 +36,17 @@
     Future<void> deleteDocument(String collection, String docId) async {
       await _firestore.collection(collection).doc(docId).delete();
     }
+
+    // Méthode pour récupérer un document spécifique par son ID
+  Future<Map<String, dynamic>?> getDocumentById(String collection, String docId) async {
+    DocumentSnapshot<Map<String, dynamic>> doc = await _firestore.collection(collection).doc(docId).get();
+    if (doc.exists) {
+      return {
+        ...doc.data()!,
+        'id': doc.id, // Inclure l'ID du document
+      };
+    }
+    return null; // Retourne null si le document n'existe pas
+  }
+
   }

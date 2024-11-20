@@ -11,7 +11,7 @@ class UserModel {
   final String? photo;
   final String codeSecret;
   final String? plafond;
-  final int roleId;
+  final String role;
   final String createdAt;
   final String updatedAt;
 
@@ -25,7 +25,7 @@ class UserModel {
     this.photo,
     required this.codeSecret,
     this.plafond,
-    required this.roleId,
+    required this.role,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -42,7 +42,7 @@ class UserModel {
       photo: json['photo'] as String?,
       codeSecret: json['code_secret'] as String,
       plafond: json['plafond']?.toString(), // Conversion en String si nécessaire
-      roleId: json['role_id'] as int,
+      role: json['role'] as String,
       createdAt: json['created_at'] as String,
       updatedAt: json['updated_at'] as String,
     );
@@ -60,7 +60,7 @@ class UserModel {
       'photo': photo,
       'code_secret': codeSecret,
       'plafond': plafond,
-      'role_id': roleId,
+      'role': role,
       'created_at': createdAt,
       'updated_at': updatedAt,
     };
