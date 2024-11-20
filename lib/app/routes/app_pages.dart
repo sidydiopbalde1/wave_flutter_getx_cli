@@ -8,6 +8,8 @@ import '../modules/login/bindings/login_binding.dart';
 import '../modules/login/views/login_view.dart';
 import '../modules/register/bindings/register_binding.dart';
 import '../modules/register/views/register_view.dart';
+import '../modules/transaction/bindings/transaction_binding.dart';
+import '../modules/transaction/views/transaction_view.dart';
 import '../modules/transfer/bindings/transfer_binding.dart';
 import '../modules/transfer/views/transfer_view.dart';
 
@@ -41,8 +43,13 @@ class AppPages {
     ),
     GetPage(
       name: _Paths.REGISTER,
-      page: () =>  RegisterView(),
+      page: () => RegisterView(),
       binding: RegisterBinding(),
+    ),
+    GetPage(
+      name: _Paths.TRANSACTION,
+      page: () =>  TransactionView(),
+      binding: TransactionBinding(),
     ),
   ];
 }

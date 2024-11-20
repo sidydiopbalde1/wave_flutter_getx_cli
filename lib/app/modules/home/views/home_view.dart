@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../controllers/home_controller.dart';
-import '../../transfer/views/transfer_view.dart';
+// import '../../transfer/views/transfer_view.dart';
+import '../../transaction/views/transaction_view.dart';
 
 class HomeView extends GetView<HomeController> {
   @override
@@ -107,7 +108,7 @@ class HomeView extends GetView<HomeController> {
       crossAxisSpacing: 16,
       mainAxisSpacing: 16,
       children: [
-        _buildServiceCard('Transfert', Icons.send, () => Get.to(() => TransferView())),
+        _buildServiceCard('Transfert', Icons.send, () => Get.to(() => TransactionView())),
         _buildServiceCard('Planifier', Icons.schedule, () {}),
         _buildServiceCard('Historique', Icons.history, () {}),
       ],

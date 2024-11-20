@@ -25,6 +25,7 @@ dependencies:
   get: ^4.6.6
   firebase_database: ^10.0.8
   logger: ^1.0.0 
+  intl: ^0.18.0
 
 
 dev_dependencies:

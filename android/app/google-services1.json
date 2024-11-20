@@ -1,7 +1,6 @@
 {
   "project_info": {
     "project_number": "304329472585",
-    "firebase_url": "https://wavegetx-default-rtdb.firebaseio.com",
     "project_id": "wavegetx",
     "storage_bucket": "wavegetx.firebasestorage.app"
   },
@@ -32,10 +31,10 @@
               "client_type": 3
             },
             {
-              "client_id": "304329472585-7j49jgpu3akrab4di6ftk8cc1liiebvv.apps.googleusercontent.com",
+              "client_id": "304329472585-e9sbj8b4aql2en7q0o16s55kbidshmvp.apps.googleusercontent.com",
               "client_type": 2,
               "ios_info": {
-                "bundle_id": "com.wavegetxcliv2.waveGetxCliV2"
+                "bundle_id": "com.example.waveGetxCli"
               }
             }
           ]
@@ -68,10 +67,10 @@
               "client_type": 3
             },
             {
-              "client_id": "304329472585-7j49jgpu3akrab4di6ftk8cc1liiebvv.apps.googleusercontent.com",
+              "client_id": "304329472585-e9sbj8b4aql2en7q0o16s55kbidshmvp.apps.googleusercontent.com",
               "client_type": 2,
               "ios_info": {
-                "bundle_id": "com.wavegetxcliv2.waveGetxCliV2"
+                "bundle_id": "com.example.waveGetxCli"
               }
             }
           ]
