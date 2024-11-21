@@ -1,5 +1,5 @@
 class TransactionModel {
-  final int id;
+  final String id; // Utilisation d'un id de type String pour Firestore
   final double montant;
   final String status;
   final DateTime date;
@@ -7,6 +7,7 @@ class TransactionModel {
   final String type;
   final String senderId;
   final String receiverId;
+  final String recipientName;
 
   TransactionModel({
     required this.id,
@@ -17,6 +18,7 @@ class TransactionModel {
     required this.type,
     required this.senderId,
     required this.receiverId,
+    required this.recipientName,
   });
 
   // Convertir les données de Firestore en modèle TransactionModel
@@ -30,13 +32,14 @@ class TransactionModel {
       type: data['type'] ?? 'Inconnu', // Valeur par défaut si non défini
       status: data['status'] ?? 'Inconnu', // Valeur par défaut si non défini
       frais: (data['frais'] as num).toDouble(), // Conversion vers double
+      recipientName: data['recipientName']?? 'Feeling', // Valeur par défaut si non défini
     );
   }
 
   // Convertir le modèle TransactionModel en format Firestore
   Map<String, dynamic> toFirestore() {
     return {
-      'id': id, // Si vous ne souhaitez pas envoyer l'ID, vous pouvez le retirer ici
+      'id': id, // Assurez-vous de bien inclure 'id' si vous le souhaitez
       'senderId': senderId,
       'receiverId': receiverId,
       'montant': montant,
@@ -44,6 +47,7 @@ class TransactionModel {
       'type': type,
       'status': status,
       'frais': frais, // Inclure le champ 'frais'
+      'recipientName': recipientName, // Inclure le champ'recipientName'
     };
   }
 }

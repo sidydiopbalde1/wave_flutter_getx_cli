@@ -1,199 +1,168 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:get/get.dart';
+
 import '../controllers/transaction_controller.dart';
-import 'create_transaction_view.dart';
-import 'package:intl/intl.dart';
-import '../../../data/models/transactionModel.dart';
 
 class TransactionView extends StatelessWidget {
+  final TransactionController controller = Get.put(TransactionController());
+  final RxBool _isMultiSelect = false.obs;
+  final RxList<Contact> _selectedContacts = <Contact>[].obs;
+  final TextEditingController _amountController = TextEditingController();
+
   TransactionView({super.key});
 
-  final TransactionController controller = Get.put(TransactionController());
+  void _performMultiTransfer() {
+    if (_amountController.text.isEmpty) {
+      Get.snackbar('Erreur', 'Veuillez entrer un montant');
+      return;
+    }
+
+    double amount = double.tryParse(_amountController.text) ?? 0.0;
+    if (amount <= 0) {
+      Get.snackbar('Erreur', 'Montant invalide');
+      return;
+    }
+
+    controller.transferToMultipleContacts(_selectedContacts, amount);
+  }
+
+  void transferToMultipleContacts(Contact contact) {
+    if (!_isMultiSelect.value) {
+      if (_amountController.text.isEmpty) {
+        Get.snackbar('Erreur', 'Veuillez entrer un montant');
+        return;
+      }
+
+      double amount = double.tryParse(_amountController.text) ?? 0.0;
+      if (amount <= 0) {
+        Get.snackbar('Erreur', 'Montant invalide');
+        return;
+      }
+
+      controller.transferToContact(contact, amount);
+    } else {
+      if (_selectedContacts.contains(contact)) {
+        _selectedContacts.remove(contact);
+      } else {
+        _selectedContacts.add(contact);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
       appBar: AppBar(
-        backgroundColor: Colors.blue[600],
-        elevation: 0,
-        title: Text(
-          'Transactions',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-            fontSize: 22,
-          ),
-        ),
-        centerTitle: true,
+        title: const Text('Transfert de Fonds'),
         actions: [
-          IconButton(
-            icon: Icon(Icons.filter_list, color: Colors.white),
-            onPressed: () {
-              // Fonctionnalité de filtrage à implémenter
-            },
-          ),
+          Obx(() => Switch(
+                value: _isMultiSelect.value,
+                onChanged: (bool value) {
+                  _isMultiSelect.value = value;
+                  _selectedContacts.clear();
+                },
+                activeColor: Colors.green,
+              )),
+          const Text('Multi-Transfert')
         ],
       ),
-      body: Obx(() {
-        if (controller.isLoading.value) {
-          return Center(child: CircularProgressIndicator());
-        }
-        
-        // Vérification si les transactions sont vides
-        if (controller.transactions.isEmpty) {
-          return _buildEmptyState();
-        }
-
-        return _buildTransactionList();
-      }),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => Get.to(() => const CreateTransactionView()),
-        backgroundColor: Colors.blue[600],
-        icon: const Icon(Icons.add, color: Colors.white),
-        label: Text(
-          'Nouvelle Transaction', 
-          style: TextStyle(
-            color: Colors.white, 
-            fontWeight: FontWeight.bold
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+      body: Column(
         children: [
-          Icon(
-            Icons.receipt_long_outlined, 
-            size: 100, 
-            color: Colors.blue[300],
-          ),
-          const SizedBox(height: 20),
-          Text(
-            'Aucune transaction disponible',
-            style: TextStyle(
-              fontSize: 20, 
-              color: Colors.blue[800],
-              fontWeight: FontWeight.w600,
+          // Saisie du montant
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: TextField(
+              controller: _amountController,
+              keyboardType: TextInputType.number,
+              decoration: InputDecoration(
+                labelText: 'Montant à transférer',
+                prefixIcon: const Icon(Icons.monetization_on),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
             ),
           ),
-          const SizedBox(height: 10),
-          Text(
-            'Commencez par créer votre première transaction',
-            style: TextStyle(
-              fontSize: 16, 
-              color: Colors.grey[600],
+
+          // Liste des contacts
+          Expanded(
+            child: Obx(() {
+              if (controller.isLoading.value) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              if (controller.contacts.isEmpty) {
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.contact_page, size: 100, color: Colors.grey),
+                      const SizedBox(height: 20),
+                      const Text(
+                        'Aucun contact trouvé',
+                        style: TextStyle(fontSize: 18, color: Colors.grey),
+                      ),
+                      ElevatedButton(
+                        onPressed: () => controller.fetchContacts(),
+                        child: const Text('Recharger les contacts'),
+                      )
+                    ],
+                  ),
+                );
+              }
+
+              return ListView.builder(
+                itemCount: controller.contacts.length,
+                itemBuilder: (context, index) {
+                  final contact = controller.contacts[index];
+                  return ListTile(
+                    leading: _isMultiSelect.value
+                        ? Checkbox(
+                            value: _selectedContacts.contains(contact),
+                            onChanged: (bool? selected) {
+                              if (selected == true) {
+                                _selectedContacts.add(contact);
+                              } else {
+                                _selectedContacts.remove(contact);
+                              }
+                            },
+                          )
+                        : const Icon(Icons.person),
+                    title: Text(contact.displayName.isNotEmpty 
+                        ? contact.displayName 
+                        : 'Contact sans nom'),
+                    subtitle: contact.phones.isNotEmpty
+                        ? Text(contact.phones.first.number)
+                        : const Text('Pas de numéro'),
+                    onTap: () => transferToMultipleContacts(contact),
+                  );
+                },
+              );
+            }),
+          ),
+
+          // Bouton de transfert
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                minimumSize: const Size(double.infinity, 50),
+                backgroundColor: Colors.green,
+              ),
+              onPressed: _isMultiSelect.value && _selectedContacts.isNotEmpty
+                  ? _performMultiTransfer 
+                  : null,
+              child: Text(
+                _isMultiSelect.value 
+                  ? 'Transfert Groupé (${_selectedContacts.length} contacts)' 
+                  : 'Sélectionnez des contacts pour un transfert groupé',
+                style: const TextStyle(fontSize: 16),
+              ),
             ),
-            textAlign: TextAlign.center,
           ),
         ],
       ),
     );
-  }
-
-  Widget _buildTransactionList() {
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: controller.transactions.length,
-      itemBuilder: (context, index) {
-        final transaction = controller.transactions[index];
-        return _buildTransactionCard(transaction);
-      },
-    );
-  }
-
-  Widget _buildTransactionCard(TransactionModel transaction) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(15),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.blue.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-        leading: Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: _getTransactionColor(transaction.type).withOpacity(0.1),
-            shape: BoxShape.circle,
-          ),
-          child: Icon(
-            _getTransactionIcon(transaction.type),
-            color: _getTransactionColor(transaction.type),
-          ),
-        ),
-        title: Text(
-          '${transaction.montant.toStringAsFixed(2)} €',
-          style: TextStyle(
-            fontWeight: FontWeight.bold, 
-            color: _getTransactionColor(transaction.type),
-          ),
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Statut : ${transaction.status}',
-              style: TextStyle(color: Colors.grey[700]),
-            ),
-            Text(
-              DateFormat('dd MMM yyyy HH:mm').format(transaction.date),
-              style: TextStyle(color: Colors.grey[600]),
-            ),
-          ],
-        ),
-        trailing: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-          decoration: BoxDecoration(
-            color: _getTransactionColor(transaction.type).withOpacity(0.1),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Text(
-            transaction.type,
-            style: TextStyle(
-              color: _getTransactionColor(transaction.type),
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Color _getTransactionColor(String type) {
-    switch (type) {
-      case 'retrait':
-        return Colors.red;
-      case 'transfert':
-        return Colors.blue;
-      case 'depot':
-        return Colors.green;
-      default:
-        return Colors.grey;
-    }
-  }
-
-  IconData _getTransactionIcon(String type) {
-    switch (type) {
-      case 'retrait':
-        return Icons.arrow_upward;
-      case 'transfert':
-        return Icons.swap_horiz;
-      case 'depot':
-        return Icons.arrow_downward;
-      default:
-        return Icons.attach_money;
-    }
   }
 }

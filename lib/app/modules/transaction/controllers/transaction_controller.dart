@@ -1,3 +1,4 @@
+import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:get/get.dart';
 import '../../../data/models/transactionModel.dart';
 import '../../../services/firebase_store_service.dart';
@@ -5,8 +6,11 @@ import '../../../services/firebase_store_service.dart';
 class TransactionController extends GetxController {
   final FirestoreService _firestoreService = FirestoreService();
 
-  // Liste observable pour stocker les transactions
+  // Transactions
   var transactions = <TransactionModel>[].obs;
+
+  // Contacts
+  var contacts = <Contact>[].obs;
 
   // Indicateur de chargement
   var isLoading = true.obs;
@@ -14,24 +18,15 @@ class TransactionController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    listenToTransactions(); // Écouter les transactions en temps réel dès l'initialisation
-    fetchTransactions(); // Charger les transactions initiales
+    fetchTransactions();
+    listenToTransactions();
+    fetchContacts();
   }
 
-  // Méthode pour créer une transaction
-  Future<void> createTransaction(TransactionModel transaction) async {
-    try {
-      await _firestoreService.addDocument('transactions', transaction.toFirestore());
-      Get.snackbar('Succès', 'Transaction créée avec succès !');
-    } catch (e) {
-      Get.snackbar('Erreur', 'Impossible de créer la transaction : $e');
-    }
-  }
-
-  // Méthode pour récupérer les transactions (une fois)
+  // Charger les transactions
   Future<void> fetchTransactions() async {
     try {
-      isLoading.value = true; // Indiquer que les transactions sont en cours de récupération
+      isLoading.value = true;
       final documents = await _firestoreService.getDocuments('transactions');
       transactions.value = documents.map((data) {
         return TransactionModel.fromFirestore(data);
@@ -39,11 +34,11 @@ class TransactionController extends GetxController {
     } catch (e) {
       Get.snackbar('Erreur', 'Impossible de récupérer les transactions : $e');
     } finally {
-      isLoading.value = false; // Fin de la récupération des transactions
+      isLoading.value = false;
     }
   }
 
-  // Méthode pour écouter les transactions en temps réel
+  // Écouter les transactions en temps réel
   void listenToTransactions() {
     _firestoreService.listenToDocuments('transactions').listen((documents) {
       transactions.value = documents.map((data) {
@@ -52,23 +47,74 @@ class TransactionController extends GetxController {
     });
   }
 
-  // Méthode pour mettre à jour une transaction
-  Future<void> updateTransaction(String id, Map<String, dynamic> updatedData) async {
+  // Charger les contacts
+  Future<void> fetchContacts() async {
     try {
-      await _firestoreService.updateDocument('transactions', id, updatedData);
-      Get.snackbar('Succès', 'Transaction mise à jour avec succès !');
+      isLoading.value = true;
+      if (await FlutterContacts.requestPermission()) {
+        final phoneContacts = await FlutterContacts.getContacts(
+          withProperties: true,
+          withPhoto: false,
+        );
+        
+        print('Nombre de contacts récupérés : ${phoneContacts.length}');
+        
+        contacts.value = phoneContacts;
+      } else {
+        print('Permission de lecture des contacts refusée');
+        Get.snackbar('Erreur', 'Permission de lire les contacts refusée');
+      }
     } catch (e) {
-      Get.snackbar('Erreur', 'Impossible de mettre à jour la transaction : $e');
+      print('Erreur lors du chargement des contacts : $e');
+      Get.snackbar('Erreur', 'Impossible de charger les contacts : $e');
+    } finally {
+      isLoading.value = false;
     }
   }
 
-  // Méthode pour supprimer une transaction
-  Future<void> deleteTransaction(String id) async {
+  // Transférer à un contact
+  Future<void> transferToContact(Contact contact, double amount) async {
     try {
-      await _firestoreService.deleteDocument('transactions', id);
-      Get.snackbar('Succès', 'Transaction supprimée avec succès !');
+      // Vérifier si l'utilisateur est connecté
+      
+      String senderId = 'currentUserId'; 
+      String receiverId = contact.phones.isNotEmpty ? contact.phones.first.number : 'Inconnu';
+      
+      // Calculer les frais (par exemple 5% du montant)
+      double frais = amount * 0.05;
+
+      // Créer l'objet TransactionModel
+      final transaction = TransactionModel(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        type: 'transfer',
+        montant: amount,
+        date: DateTime.now(),
+        recipientName: contact.displayName,
+        senderId: senderId,
+        receiverId: receiverId,
+        status: 'pending',
+        frais: frais,
+      );
+
+      // Ajouter la transaction à Firestore
+      await _firestoreService.addDocument('transactions', transaction.toFirestore());
+
+      // Afficher un message de succès
+      Get.snackbar('Succès', 'Transfert effectué à ${contact.displayName}');
     } catch (e) {
-      Get.snackbar('Erreur', 'Impossible de supprimer la transaction : $e');
+      Get.snackbar('Erreur', 'Impossible d\'effectuer le transfert : $e');
+    }
+  }
+
+  // Transférer à plusieurs contacts
+  Future<void> transferToMultipleContacts(List<Contact> selectedContacts, double amount) async {
+    try {
+      for (var contact in selectedContacts) {
+        await transferToContact(contact, amount);
+      }
+      Get.snackbar('Succès', 'Transfert groupé effectué à ${selectedContacts.length} contacts');
+    } catch (e) {
+      Get.snackbar('Erreur', 'Impossible d\'effectuer le transfert groupé : $e');
     }
   }
 }

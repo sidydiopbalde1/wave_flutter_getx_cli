@@ -3,8 +3,6 @@ import 'package:get/get.dart';
 import '../modules/auth/bindings/auth_binding.dart';
 import '../modules/auth/views/auth_view.dart';
 import '../modules/distributor/bindings/distributor_binding.dart';
-import '../modules/distributor/bindings/distributor_binding.dart';
-import '../modules/distributor/views/distributor_view.dart';
 import '../modules/distributor/views/distributor_view.dart';
 import '../modules/home/bindings/home_binding.dart';
 import '../modules/home/views/home_view.dart';
