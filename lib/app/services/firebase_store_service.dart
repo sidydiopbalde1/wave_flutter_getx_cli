@@ -1,4 +1,4 @@
-  import 'package:cloud_firestore/cloud_firestore.dart';
+      import 'package:cloud_firestore/cloud_firestore.dart';
 
   class FirestoreService {
     final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -7,6 +7,19 @@
     Future<void> addDocument(String collection, Map<String, dynamic> data) async {
       await _firestore.collection(collection).add(data);
     }
+
+    // Méthode pour récupérer les transactions d'un utilisateur spécifique
+  Future<List<Map<String, dynamic>>> getUserTransactions(String collection, String userId) async {
+    final querySnapshot = await _firestore
+        .collection(collection)
+        .where('senderId', isEqualTo: userId)
+        .get();
+
+    return querySnapshot.docs.map((doc) => {
+          ...doc.data(),
+          'id': doc.id, // Inclure l'ID du document
+        }).toList();
+  }
 
     // Méthode pour récupérer tous les documents d'une collection
     Future<List<Map<String, dynamic>>> getDocuments(String collection) async {

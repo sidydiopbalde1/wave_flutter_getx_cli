@@ -2,9 +2,13 @@ import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:get/get.dart';
 import '../../../data/models/transactionModel.dart';
 import '../../../services/firebase_store_service.dart';
+import '../../auth/controllers/auth_controller.dart';
+import '../../../services/user_service.dart'; // Importez votre service pour les utilisateurs
 
 class TransactionController extends GetxController {
   final FirestoreService _firestoreService = FirestoreService();
+  final AuthController authController = Get.find();
+  final UserService _userService = UserService(); // Service pour obtenir les utilisateurs
 
   // Transactions
   var transactions = <TransactionModel>[].obs;
@@ -18,16 +22,31 @@ class TransactionController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    fetchTransactions();
-    listenToTransactions();
+    fetchUserTransactions(); // Charger uniquement les transactions de l'utilisateur connecté
+    listenToUserTransactions(); // Écouter les transactions en temps réel pour l'utilisateur connecté
     fetchContacts();
   }
 
-  // Charger les transactions
-  Future<void> fetchTransactions() async {
+  // Charger les transactions de l'utilisateur connecté
+  Future<void> fetchUserTransactions() async {
     try {
       isLoading.value = true;
-      final documents = await _firestoreService.getDocuments('transactions');
+
+      // Vérifier si l'utilisateur est connecté
+      final senderId = authController.user.value?.uid;
+      if (senderId == null) {
+        Get.snackbar(
+          'Erreur',
+          'Utilisateur non connecté. Veuillez vous authentifier.',
+          snackPosition: SnackPosition.BOTTOM,
+        );
+        return;
+      }
+
+      // Récupérer les transactions de l'utilisateur connecté
+      final documents = await _firestoreService.getUserTransactions('transactions', senderId);
+
+      // Convertir les documents en objets TransactionModel
       transactions.value = documents.map((data) {
         return TransactionModel.fromFirestore(data);
       }).toList();
@@ -38,13 +57,27 @@ class TransactionController extends GetxController {
     }
   }
 
-  // Écouter les transactions en temps réel
-  void listenToTransactions() {
-    _firestoreService.listenToDocuments('transactions').listen((documents) {
-      transactions.value = documents.map((data) {
-        return TransactionModel.fromFirestore(data);
-      }).toList();
-    });
+  // Écouter les transactions en temps réel pour l'utilisateur connecté
+  void listenToUserTransactions() {
+    final senderId = authController.user.value?.uid;
+
+    if (senderId != null) {
+      _firestoreService
+          .listenToDocuments('transactions')
+          .listen((documents) {
+        transactions.value = documents
+            .where((data) => data['senderId'] == senderId) // Filtrer par l'ID de l'utilisateur connecté
+            .map((data) {
+          return TransactionModel.fromFirestore(data);
+        }).toList();
+      });
+    } else {
+      Get.snackbar(
+        'Erreur',
+        'Utilisateur non connecté. Veuillez vous authentifier.',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    }
   }
 
   // Charger les contacts
@@ -56,9 +89,9 @@ class TransactionController extends GetxController {
           withProperties: true,
           withPhoto: false,
         );
-        
+
         print('Nombre de contacts récupérés : ${phoneContacts.length}');
-        
+
         contacts.value = phoneContacts;
       } else {
         print('Permission de lecture des contacts refusée');
@@ -76,12 +109,28 @@ class TransactionController extends GetxController {
   Future<void> transferToContact(Contact contact, double amount) async {
     try {
       // Vérifier si l'utilisateur est connecté
-      
-      String senderId = 'currentUserId'; 
-      String receiverId = contact.phones.isNotEmpty ? contact.phones.first.number : 'Inconnu';
-      
+      final senderId = authController.user.value?.uid;
+      if (senderId == null) {
+        Get.snackbar(
+          'Erreur',
+          'Utilisateur non connecté. Veuillez vous authentifier.',
+          snackPosition: SnackPosition.BOTTOM,
+        );
+        return;
+      }
+
+      // Obtenir l'ID du destinataire (numéro de téléphone du contact)
+      final receiverId = contact.phones.isNotEmpty ? contact.phones.first.number : 'Inconnu';
+
       // Calculer les frais (par exemple 5% du montant)
-      double frais = amount * 0.05;
+      final double frais = amount * 0.05;
+
+      // Vérifier si le destinataire existe dans la collection 'users'
+      final userExists = await _userService.userExistsByPhone(receiverId);
+      if (!userExists) {
+        Get.snackbar('Erreur', 'Le numéro de téléphone n\'est pas associé à un utilisateur.');
+        return;
+      }
 
       // Créer l'objet TransactionModel
       final transaction = TransactionModel(
@@ -100,15 +149,30 @@ class TransactionController extends GetxController {
       await _firestoreService.addDocument('transactions', transaction.toFirestore());
 
       // Afficher un message de succès
-      Get.snackbar('Succès', 'Transfert effectué à ${contact.displayName}');
+      Get.snackbar(
+        'Succès',
+        'Transfert effectué à ${contact.displayName}',
+        snackPosition: SnackPosition.BOTTOM,
+      );
     } catch (e) {
-      Get.snackbar('Erreur', 'Impossible d\'effectuer le transfert : $e');
+      Get.snackbar(
+        'Erreur',
+        'Impossible d\'effectuer le transfert : $e',
+        snackPosition: SnackPosition.BOTTOM,
+      );
     }
   }
 
   // Transférer à plusieurs contacts
   Future<void> transferToMultipleContacts(List<Contact> selectedContacts, double amount) async {
     try {
+      // Vérifier le solde de l'utilisateur
+      // final userBalance = authController.user;
+      // if (amount > userBalance) {
+      //   Get.snackbar('Erreur', 'Le montant dépasse votre solde disponible.');
+      //   return;
+      // }
+
       for (var contact in selectedContacts) {
         await transferToContact(contact, amount);
       }

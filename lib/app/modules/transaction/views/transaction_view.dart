@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:get/get.dart';
 
-import '../controllers/transaction_controller.dart';
+import '../controllers/transaction_controller.dart'; // Adjust import path as needed
 
 class TransactionView extends StatelessWidget {
   final TransactionController controller = Get.put(TransactionController());
@@ -11,44 +11,6 @@ class TransactionView extends StatelessWidget {
   final TextEditingController _amountController = TextEditingController();
 
   TransactionView({super.key});
-
-  void _performMultiTransfer() {
-    if (_amountController.text.isEmpty) {
-      Get.snackbar('Erreur', 'Veuillez entrer un montant');
-      return;
-    }
-
-    double amount = double.tryParse(_amountController.text) ?? 0.0;
-    if (amount <= 0) {
-      Get.snackbar('Erreur', 'Montant invalide');
-      return;
-    }
-
-    controller.transferToMultipleContacts(_selectedContacts, amount);
-  }
-
-  void transferToMultipleContacts(Contact contact) {
-    if (!_isMultiSelect.value) {
-      if (_amountController.text.isEmpty) {
-        Get.snackbar('Erreur', 'Veuillez entrer un montant');
-        return;
-      }
-
-      double amount = double.tryParse(_amountController.text) ?? 0.0;
-      if (amount <= 0) {
-        Get.snackbar('Erreur', 'Montant invalide');
-        return;
-      }
-
-      controller.transferToContact(contact, amount);
-    } else {
-      if (_selectedContacts.contains(contact)) {
-        _selectedContacts.remove(contact);
-      } else {
-        _selectedContacts.add(contact);
-      }
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -60,7 +22,7 @@ class TransactionView extends StatelessWidget {
                 value: _isMultiSelect.value,
                 onChanged: (bool value) {
                   _isMultiSelect.value = value;
-                  _selectedContacts.clear();
+                  _selectedContacts.clear(); // Reset selected contacts
                 },
                 activeColor: Colors.green,
               )),
@@ -69,7 +31,7 @@ class TransactionView extends StatelessWidget {
       ),
       body: Column(
         children: [
-          // Saisie du montant
+          // Amount Input
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: TextField(
@@ -85,64 +47,42 @@ class TransactionView extends StatelessWidget {
             ),
           ),
 
-          // Liste des contacts
+          // Contacts List
           Expanded(
             child: Obx(() {
               if (controller.isLoading.value) {
                 return const Center(child: CircularProgressIndicator());
               }
 
-              if (controller.contacts.isEmpty) {
-                return Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.contact_page, size: 100, color: Colors.grey),
-                      const SizedBox(height: 20),
-                      const Text(
-                        'Aucun contact trouvé',
-                        style: TextStyle(fontSize: 18, color: Colors.grey),
-                      ),
-                      ElevatedButton(
-                        onPressed: () => controller.fetchContacts(),
-                        child: const Text('Recharger les contacts'),
-                      )
-                    ],
-                  ),
-                );
-              }
-
               return ListView.builder(
                 itemCount: controller.contacts.length,
                 itemBuilder: (context, index) {
                   final contact = controller.contacts[index];
-                  return ListTile(
-                    leading: _isMultiSelect.value
-                        ? Checkbox(
-                            value: _selectedContacts.contains(contact),
-                            onChanged: (bool? selected) {
-                              if (selected == true) {
-                                _selectedContacts.add(contact);
-                              } else {
-                                _selectedContacts.remove(contact);
-                              }
-                            },
-                          )
-                        : const Icon(Icons.person),
-                    title: Text(contact.displayName.isNotEmpty 
-                        ? contact.displayName 
-                        : 'Contact sans nom'),
-                    subtitle: contact.phones.isNotEmpty
-                        ? Text(contact.phones.first.number)
-                        : const Text('Pas de numéro'),
-                    onTap: () => transferToMultipleContacts(contact),
-                  );
+                  return Obx(() => ListTile(
+                        leading: _isMultiSelect.value
+                            ? Checkbox(
+                                value: _selectedContacts.contains(contact),
+                                onChanged: (bool? selected) {
+                                  if (selected == true) {
+                                    _selectedContacts.add(contact);
+                                  } else {
+                                    _selectedContacts.remove(contact);
+                                  }
+                                },
+                              )
+                            : const Icon(Icons.person),
+                        title: Text(contact.displayName),
+                        subtitle: contact.phones.isNotEmpty
+                            ? Text(contact.phones.first.number)
+                            : null,
+                        onTap: () => _performTransfer(contact),
+                      ));
                 },
               );
             }),
           ),
 
-          // Bouton de transfert
+          // Transfer Button
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: ElevatedButton(
@@ -150,12 +90,12 @@ class TransactionView extends StatelessWidget {
                 minimumSize: const Size(double.infinity, 50),
                 backgroundColor: Colors.green,
               ),
-              onPressed: _isMultiSelect.value && _selectedContacts.isNotEmpty
-                  ? _performMultiTransfer 
-                  : null,
+              onPressed: _isMultiSelect.value 
+                ? _performMultiTransfer 
+                : null,
               child: Text(
                 _isMultiSelect.value 
-                  ? 'Transfert Groupé (${_selectedContacts.length} contacts)' 
+                  ? 'Transfert Groupé' 
                   : 'Sélectionnez des contacts pour un transfert groupé',
                 style: const TextStyle(fontSize: 16),
               ),
@@ -164,5 +104,52 @@ class TransactionView extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  void _performTransfer(Contact contact) {
+    if (!_isMultiSelect.value) {
+      // Validate amount
+      final amount = double.tryParse(_amountController.text);
+      if (amount == null || amount <= 0) {
+        Get.snackbar(
+          'Erreur', 
+          'Veuillez entrer un montant valide',
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
+        );
+        return;
+      }
+
+      // Perform single transfer
+      controller.transferToContact(contact, amount);
+    }
+  }
+
+  void _performMultiTransfer() {
+    // Validate amount
+    final amount = double.tryParse(_amountController.text);
+    if (amount == null || amount <= 0) {
+      Get.snackbar(
+        'Erreur', 
+        'Veuillez entrer un montant valide',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+      return;
+    }
+
+    // Validate contacts selection
+    if (_selectedContacts.isEmpty) {
+      Get.snackbar(
+        'Erreur', 
+        'Veuillez sélectionner au moins un contact',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+      return;
+    }
+
+    // Perform multi transfer
+    controller.transferToMultipleContacts(_selectedContacts, amount);
   }
 }
