@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../controllers/transaction_controller.dart';
 import '../../../data/models/transactionModel.dart';
+import '../../auth/controllers/auth_controller.dart';
 
 class CreateTransactionView extends StatelessWidget {
   const CreateTransactionView({super.key});
@@ -9,6 +10,7 @@ class CreateTransactionView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final TransactionController transactionController = Get.find();
+    final AuthController authController = Get.find(); // Récupérer le contrôleur d'authentification
 
     final montantController = TextEditingController();
     final receiverIdController = TextEditingController();
@@ -36,7 +38,12 @@ class CreateTransactionView extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _buildTransactionForm(montantController, receiverIdController, transactionController),
+              _buildTransactionForm(
+                montantController,
+                receiverIdController,
+                transactionController,
+                authController,
+              ),
             ],
           ),
         ),
@@ -47,7 +54,8 @@ class CreateTransactionView extends StatelessWidget {
   Widget _buildTransactionForm(
     TextEditingController montantController,
     TextEditingController receiverIdController,
-    TransactionController transactionController
+    TransactionController transactionController,
+    AuthController authController,
   ) {
     return Container(
       decoration: BoxDecoration(
@@ -90,7 +98,12 @@ class CreateTransactionView extends StatelessWidget {
             keyboardType: TextInputType.number,
           ),
           const SizedBox(height: 24),
-          _buildSubmitButton(montantController, receiverIdController, transactionController),
+          _buildSubmitButton(
+            montantController,
+            receiverIdController,
+            transactionController,
+            authController,
+          ),
         ],
       ),
     );
@@ -129,21 +142,33 @@ class CreateTransactionView extends StatelessWidget {
   Widget _buildSubmitButton(
     TextEditingController montantController,
     TextEditingController receiverIdController,
-    TransactionController transactionController
+    TransactionController transactionController,
+    AuthController authController,
   ) {
     return ElevatedButton(
       onPressed: () {
         final montant = double.tryParse(montantController.text) ?? 0;
-        final receiverId = int.tryParse(receiverIdController.text) ?? 0;
+        final receiverId = receiverIdController.text;
+
+        // Récupérer l'ID de l'utilisateur connecté
+        final senderId = authController.user.value?.uid;
+        if (senderId == null) {
+          Get.snackbar(
+            'Erreur',
+            'Utilisateur non connecté. Veuillez vous authentifier.',
+            snackPosition: SnackPosition.BOTTOM,
+          );
+          return;
+        }
 
         final newTransaction = TransactionModel(
           id: DateTime.now().millisecondsSinceEpoch,
           montant: montant,
-          status: 'pending',
+          status: 'completed',
           date: DateTime.now(),
           frais: montant * 0.05,
           type: 'transfert',
-          senderId: 1, // ID fictif, à remplacer par l'ID réel
+          senderId: senderId,
           receiverId: receiverId,
         );
 

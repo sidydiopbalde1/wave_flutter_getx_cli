@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import '../controllers/transaction_controller.dart';
 import 'create_transaction_view.dart';
 import 'package:intl/intl.dart';
+import '../../../data/models/transactionModel.dart';
 
 class TransactionView extends StatelessWidget {
   TransactionView({super.key});
@@ -29,12 +30,17 @@ class TransactionView extends StatelessWidget {
           IconButton(
             icon: Icon(Icons.filter_list, color: Colors.white),
             onPressed: () {
-              // À implémenter : Fonctionnalité de filtrage
+              // Fonctionnalité de filtrage à implémenter
             },
           ),
         ],
       ),
       body: Obx(() {
+        if (controller.isLoading.value) {
+          return Center(child: CircularProgressIndicator());
+        }
+        
+        // Vérification si les transactions sont vides
         if (controller.transactions.isEmpty) {
           return _buildEmptyState();
         }
@@ -100,7 +106,7 @@ class TransactionView extends StatelessWidget {
     );
   }
 
-  Widget _buildTransactionCard(transaction) {
+  Widget _buildTransactionCard(TransactionModel transaction) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(

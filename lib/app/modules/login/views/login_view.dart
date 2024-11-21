@@ -198,7 +198,7 @@ class LoginView extends GetView<AuthController> {
                           socialButton(
                             FontAwesomeIcons.facebook,
                             'Facebook',
-                            controller.signInWithFacebook,
+                            () {},
                           ),
                         ],
                       ),

@@ -5,8 +5,8 @@ class TransactionModel {
   final DateTime date;
   final double frais;
   final String type;
-  final int senderId;
-  final int receiverId;
+  final String senderId;
+  final String receiverId;
 
   TransactionModel({
     required this.id,

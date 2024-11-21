@@ -9,6 +9,8 @@ abstract class Routes {
   static const TRANSFER = _Paths.TRANSFER;
   static const REGISTER = _Paths.REGISTER;
   static const TRANSACTION = _Paths.TRANSACTION;
+  static const DISTRIBUTOR = _Paths.DISTRIBUTOR;
+
 }
 
 abstract class _Paths {
@@ -19,4 +21,6 @@ abstract class _Paths {
   static const TRANSFER = '/transfer';
   static const REGISTER = '/register';
   static const TRANSACTION = '/transaction';
+  static const DISTRIBUTOR = '/distributor';
+
 }

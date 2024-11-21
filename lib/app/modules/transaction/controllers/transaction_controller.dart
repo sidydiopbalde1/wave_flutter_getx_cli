@@ -8,10 +8,14 @@ class TransactionController extends GetxController {
   // Liste observable pour stocker les transactions
   var transactions = <TransactionModel>[].obs;
 
+  // Indicateur de chargement
+  var isLoading = true.obs;
+
   @override
   void onInit() {
     super.onInit();
     listenToTransactions(); // Écouter les transactions en temps réel dès l'initialisation
+    fetchTransactions(); // Charger les transactions initiales
   }
 
   // Méthode pour créer une transaction
@@ -27,12 +31,15 @@ class TransactionController extends GetxController {
   // Méthode pour récupérer les transactions (une fois)
   Future<void> fetchTransactions() async {
     try {
+      isLoading.value = true; // Indiquer que les transactions sont en cours de récupération
       final documents = await _firestoreService.getDocuments('transactions');
       transactions.value = documents.map((data) {
         return TransactionModel.fromFirestore(data);
       }).toList();
     } catch (e) {
       Get.snackbar('Erreur', 'Impossible de récupérer les transactions : $e');
+    } finally {
+      isLoading.value = false; // Fin de la récupération des transactions
     }
   }
 
