@@ -10,7 +10,7 @@ abstract class Routes {
   static const REGISTER = _Paths.REGISTER;
   static const TRANSACTION = _Paths.TRANSACTION;
   static const DISTRIBUTOR = _Paths.DISTRIBUTOR;
-
+  static const QR_SCANNER_PAGE = _Paths.QR_SCANNER_PAGE;
 }
 
 abstract class _Paths {
@@ -22,5 +22,5 @@ abstract class _Paths {
   static const REGISTER = '/register';
   static const TRANSACTION = '/transaction';
   static const DISTRIBUTOR = '/distributor';
-
+  static const QR_SCANNER_PAGE = '/qr-scanner-page';
 }

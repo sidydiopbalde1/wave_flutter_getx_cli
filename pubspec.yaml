@@ -27,6 +27,7 @@ dependencies:
   logger: ^2.5.0 
   intl: ^0.20.0
   flutter_contacts: ^1.1.7+1
+  mobile_scanner: ^3.5.5
 
 
 dev_dependencies:
