@@ -40,7 +40,7 @@ class HomeController extends GetxController {
       final user = _auth.currentUser;
       logger.i('Fetching balance for user: ${user?.uid}');
 
-      if (user != null) {
+      if (user != null) {;;;;;;;;;
         final docSnapshot = await _firestore.collection('users').doc(user.uid).get();
         if (docSnapshot.exists) {
           balance.value = (docSnapshot.data()?['solde'] ?? 0).toDouble();
@@ -80,7 +80,7 @@ Future<void> fetchUserTransactions() async {
 }
 
 void _processTransactions(QuerySnapshot snapshot, String userId) {
-  final transactions = snapshot.docs.map((doc) {
+  final fetchedTransactions = snapshot.docs.map((doc) {
     final data = doc.data() as Map<String, dynamic>;
 
     // Conversion de 'date' en Timestamp et puis en DateTime
@@ -92,24 +92,26 @@ void _processTransactions(QuerySnapshot snapshot, String userId) {
       'senderId': data['senderId'],
       'montant': data['montant'],
       'date': dateTime,  // Utilisation de DateTime
-      // Ajoutez d'autres champs selon besoin
     };
   }).toList();
 
-  // Vous pouvez ensuite manipuler la liste des transactions
-  logger.d('Transactions récupérées : $transactions');
-    transactions.assignAll(transactions);  // Mise à jour réactive
-  _calculateTotals(transactions);
+  // Mise à jour réactive avec la nouvelle liste
+  logger.d('Transactions récupérées : $fetchedTransactions');
+  transactions.assignAll(fetchedTransactions);  // Mise à jour réactive
+  logger.d('Après Assign récupérées : $transactions');
+  
+  _calculateTotals(fetchedTransactions,userId);
 }
 
 
-  void _calculateTotals(List<Map<String, dynamic>> transactionsList) {
+
+  void _calculateTotals(List<Map<String, dynamic>> transactionsList, String userId) {
     totalSent.value = transactionsList
-        .where((t) => t['isSender'] == true)
+        .where((t) => t['senderId'] == userId)
         .fold(0.0, (sum, t) => sum + (t['montant'] ?? 0.0));
 
     totalReceived.value = transactionsList
-        .where((t) => t['isSender'] == false)
+        .where((t) => t['receiverId'] == userId)
         .fold(0.0, (sum, t) => sum + (t['montant'] ?? 0.0));
   }
 

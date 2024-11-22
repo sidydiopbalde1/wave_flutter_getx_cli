@@ -64,7 +64,7 @@ class AppPages {
       name: _Paths.QR_SCANNER_PAGE,
       page: () {
         final arguments = Get.arguments as Map<String, dynamic>?;
-        return QrScannerPageView(
+        return QRScannerPageView(
           serviceType: arguments?['serviceType'] ?? 'Default',
         );
       },

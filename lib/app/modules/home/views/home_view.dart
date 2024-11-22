@@ -209,13 +209,13 @@ class HomeView extends GetView<HomeController> {
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
           _buildActionButton('Envoyer', Icons.send, () {
-           Get.to(() =>  TransactionView());
+            Get.to(() => TransactionView());
           }),
           _buildActionButton('Recevoir', Icons.arrow_downward, () {
             // Logic for "Recevoir"
           }),
           _buildActionButton('Historique', Icons.history, () {
-            Get.to(() =>  TransactionView());
+            Get.to(() => TransactionView());
           }),
         ],
       ),
@@ -243,102 +243,90 @@ class HomeView extends GetView<HomeController> {
     );
   }
 
-Widget _buildTransactionsList() {
-  return Obx(() {
-    if (controller.transactions.isEmpty) {
-      return const Center(child: Text('Aucune transaction.'));
-    }
+  Widget _buildTransactionsList() {
+    return Obx(() {
+      if (controller.transactions.isEmpty) {
+        return const Center(child: Text('Aucune transaction.'));
+      }
 
-    return ListView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: controller.transactions.length,
-      itemBuilder: (context, index) {
-        final transaction = controller.transactions[index];
-        
-        // Parse la date qui est au format String
-        final DateFormat dateFormat = DateFormat('dd/MM/yyyy HH:mm');
-        final DateTime transactionDate = DateTime.parse(transaction['date'].toString());
-        final String formattedDate = dateFormat.format(transactionDate);
+      return ListView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: controller.transactions.length,
+        itemBuilder: (context, index) {
+          final transaction = controller.transactions[index];
 
-        return _buildTransactionItem(transaction, formattedDate);
-      },
+          // Parse la date qui est au format String
+          final DateFormat dateFormat = DateFormat('dd/MM/yyyy HH:mm');
+          final DateTime transactionDate = DateTime.parse(transaction['date'].toString());
+          final String formattedDate = dateFormat.format(transactionDate);
+
+          return _buildTransactionItem(transaction, formattedDate);
+        },
+      );
+    });
+  }
+
+  Widget _buildTransactionItem(Map<String, dynamic> transaction, String formattedDate) {
+    final bool isSender = transaction['senderId'] != null;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withOpacity(0.1),
+              blurRadius: 5,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            // Icône de transaction
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: isSender ? Colors.red.withOpacity(0.1) : Colors.green.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Icon(
+                isSender ? Icons.arrow_upward : Icons.arrow_downward,
+                color: isSender ? Colors.red : Colors.green,
+              ),
+            ),
+            const SizedBox(width: 16),
+            // Détails de la transaction
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${transaction['montant'].toStringAsFixed(2)} FCFA',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Le $formattedDate',
+                    style: TextStyle(
+                      color: Colors.grey[600],
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
-  });
-}
-
-Widget _buildTransactionItem(Map<String, dynamic> transaction, String formattedDate) {
-  final bool isSender = transaction['senderId'] != null;
-
-  return Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-    child: Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            blurRadius: 5,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          // Icône de transaction
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: isSender ? Colors.red.withOpacity(0.1) : Colors.green.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Icon(
-              isSender ? Icons.arrow_upward : Icons.arrow_downward,
-              color: isSender ? Colors.red : Colors.green,
-            ),
-          ),
-          const SizedBox(width: 16),
-          // Détails de la transaction
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '${transaction['montant'].toStringAsFixed(2)} FCFA',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  formattedDate,
-                  style: TextStyle(
-                    color: Colors.grey[600],
-                    fontSize: 14,
-                  ),
-                ),
-                Text(
-                  'ID: ${transaction['id']}',
-                  style: TextStyle(
-                    color: Colors.grey[400],
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const Icon(
-            Icons.arrow_forward, 
-            color: Colors.blue,
-          ),
-        ],
-      ),
-    ),
-  );
-}
-
+  }
 }

@@ -1,9 +1,11 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../data/models/transactionModel.dart';
 import '../../../services/firebase_store_service.dart';
 import '../../auth/controllers/auth_controller.dart';
-import '../../../services/user_service.dart'; // Importez votre service pour les utilisateurs
+import '../../../services/user_service.dart';
 
 class TransactionController extends GetxController {
   final FirestoreService _firestoreService = FirestoreService();
@@ -132,16 +134,36 @@ class TransactionController extends GetxController {
         return;
       }
 
+      // Récupérer le solde actuel de l'utilisateur
+      final userDoc = await _firestoreService.getUserDocument(senderId);
+      final double currentBalance = userDoc['balance'] ?? 0.0;
+
+      // Vérifier si l'utilisateur a assez d'argent pour effectuer le transfert
+      if (currentBalance < (amount + frais)) {
+        Get.snackbar(
+          'Erreur',
+          'Solde insuffisant pour effectuer le transfert.',
+          snackPosition: SnackPosition.BOTTOM,
+        );
+        return;
+      }
+
+      // Soustraire le montant du solde de l'utilisateur
+      final newBalance = currentBalance - (amount + frais);
+
+      // Mettre à jour le solde de l'utilisateur dans Firestore
+      await _firestoreService.updateUserBalance(senderId, newBalance);
+
       // Créer l'objet TransactionModel
       final transaction = TransactionModel(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         type: 'transfer',
         montant: amount,
-        date: DateTime.now(),
+        date: Timestamp.now(),
         recipientName: contact.displayName,
         senderId: senderId,
         receiverId: receiverId,
-        status: 'pending',
+        status: 'completed',
         frais: frais,
       );
 
@@ -164,21 +186,54 @@ class TransactionController extends GetxController {
   }
 
   // Transférer à plusieurs contacts
-  Future<void> transferToMultipleContacts(List<Contact> selectedContacts, double amount) async {
-    try {
-      // Vérifier le solde de l'utilisateur
-      // final userBalance = authController.user;
-      // if (amount > userBalance) {
-      //   Get.snackbar('Erreur', 'Le montant dépasse votre solde disponible.');
-      //   return;
-      // }
-
-      for (var contact in selectedContacts) {
-        await transferToContact(contact, amount);
-      }
-      Get.snackbar('Succès', 'Transfert groupé effectué à ${selectedContacts.length} contacts');
-    } catch (e) {
-      Get.snackbar('Erreur', 'Impossible d\'effectuer le transfert groupé : $e');
+Future<void> transferToMultipleContacts(List<Contact> selectedContacts, double amount) async {
+  try {
+    // Vérifier si l'utilisateur est connecté
+    final senderId = authController.user.value?.uid;
+    if (senderId == null) {
+      Get.snackbar(
+        'Erreur',
+        'Utilisateur non connecté. Veuillez vous authentifier.',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+      return;
     }
+
+    // Calculer le montant total nécessaire (montant * nombre de contacts + frais totaux)
+    final double fraisParTransfert = amount * 0.05;
+    final double montantTotalNecessaire = (amount + fraisParTransfert) * selectedContacts.length;
+
+    // Vérifier le solde de l'utilisateur
+    final userDoc = await _firestoreService.getUserDocument(senderId);
+    final double currentBalance = userDoc['solde'] ?? 0.0;
+
+    if (montantTotalNecessaire > currentBalance) {
+      Get.snackbar(
+        'Erreur', 
+        'Solde insuffisant pour effectuer tous les transferts. Solde nécessaire: ${montantTotalNecessaire.toStringAsFixed(2)}',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+      return;
+    }
+
+    // Effectuer les transferts
+    for (var contact in selectedContacts) {
+      await transferToContact(contact, amount);
+    }
+
+    Get.snackbar(
+      'Succès', 
+      'Transfert groupé effectué à ${selectedContacts.length} contacts',
+      backgroundColor: Colors.green,
+      colorText: Colors.white,
+    );
+  } catch (e) {
+    Get.snackbar(
+      'Erreur', 
+      'Impossible d\'effectuer le transfert groupé : $e',
+      backgroundColor: Colors.red,
+      colorText: Colors.white,
+    );
   }
+}
 }

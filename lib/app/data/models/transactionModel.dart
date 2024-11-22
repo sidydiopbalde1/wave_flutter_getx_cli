@@ -1,8 +1,10 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class TransactionModel {
   final String id; // Utilisation d'un id de type String pour Firestore
   final double montant;
   final String status;
-  final DateTime date;
+  final Timestamp date;
   final double frais;
   final String type;
   final String senderId;
@@ -43,7 +45,7 @@ class TransactionModel {
       'senderId': senderId,
       'receiverId': receiverId,
       'montant': montant,
-      'date': date.toIso8601String(), // Date au format ISO 8601
+      'date': date, // Date au format ISO 8601
       'type': type,
       'status': status,
       'frais': frais, // Inclure le champ 'frais'

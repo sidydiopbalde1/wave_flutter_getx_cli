@@ -62,4 +62,30 @@
     return null; // Retourne null si le document n'existe pas
   }
 
+    Future<DocumentSnapshot> getUserDocument(String userId) async {
+    try {
+      final userDoc = await _firestore.collection('users').doc(userId).get();
+
+      // Vérifier si le document existe
+      if (!userDoc.exists) {
+        throw Exception('Utilisateur non trouvé');
+      }
+
+      return userDoc;
+    } catch (e) {
+      rethrow; // Rethrow l'exception si quelque chose échoue
+    }
+  }
+
+  // Méthode pour mettre à jour le solde de l'utilisateur
+  Future<void> updateUserBalance(String userId, double newBalance) async {
+    try {
+      await _firestore.collection('users').doc(userId).update({
+        'solde': newBalance,
+      });
+    } catch (e) {
+      rethrow; // Rethrow l'exception si quelque chose échoue
+    }
+  }
+
   }
