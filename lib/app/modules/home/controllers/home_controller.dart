@@ -34,48 +34,47 @@ class HomeController extends GetxController {
 
   void toggleBalanceVisibility() => isBalanceVisible.toggle();
 
-  Future<void> fetchBalance() async {
-    try {
-      isLoading.value = true;
-      final user = _auth.currentUser;
-      logger.i('Fetching balance for user: ${user?.uid}');
+Future<void> fetchBalance() async {
+  try {
+    final user = _auth.currentUser;
+    if (user != null) {
+      logger.i('Fetching balance for user: ${user.uid}');
 
-      if (user != null) {;;;;;;;;;
-        final docSnapshot = await _firestore.collection('users').doc(user.uid).get();
+      // Écoute en temps réel des changements dans le document utilisateur
+      _firestore.collection('users').doc(user.uid).snapshots().listen((docSnapshot) {
         if (docSnapshot.exists) {
           balance.value = (docSnapshot.data()?['solde'] ?? 0).toDouble();
         } else {
-          _showError('Profil utilisateur non trouvé');
+          logger.w('Profil utilisateur non trouvé');
         }
-      }
-    } catch (e) {
-      logger.e('Error fetching balance: $e');
-      _showError('Impossible de récupérer le solde');
-    } finally {
-      isLoading.value = false;
+      });
     }
+  } catch (e) {
+    logger.e('Erreur lors de la récupération du solde en temps réel: $e');
+    _showError('Impossible de récupérer le solde');
   }
+}
 
 Future<void> fetchUserTransactions() async {
   try {
-    isLoading.value = true;
     final user = _auth.currentUser;
 
     if (user != null) {
-      final QuerySnapshot transactionsSnapshot = await _firestore
+      logger.i('Fetching transactions for user: ${user.uid}');
+
+      // Écoute en temps réel des transactions
+      _firestore
           .collection('transactions')
           .where('senderId', isEqualTo: user.uid)
           .orderBy('date', descending: true)
-          .get();
-
-      // Traitement des transactions
-      _processTransactions(transactionsSnapshot, user.uid);
+          .snapshots()
+          .listen((querySnapshot) {
+        _processTransactions(querySnapshot, user.uid);
+      });
     }
   } catch (e) {
-    logger.e('Erreur lors de la récupération des transactions: $e');
+    logger.e('Erreur lors de la récupération des transactions en temps réel: $e');
     _showError('Impossible de récupérer vos transactions');
-  } finally {
-    isLoading.value = false;
   }
 }
 
@@ -83,25 +82,26 @@ void _processTransactions(QuerySnapshot snapshot, String userId) {
   final fetchedTransactions = snapshot.docs.map((doc) {
     final data = doc.data() as Map<String, dynamic>;
 
-    // Conversion de 'date' en Timestamp et puis en DateTime
+    // Conversion de 'date' en DateTime
     final Timestamp timestamp = data['date'] as Timestamp;
     final DateTime dateTime = timestamp.toDate();
 
     return {
       'id': doc.id,
       'senderId': data['senderId'],
+      'receiverId': data['receiverId'], // Assurez-vous que ce champ existe dans vos données
       'montant': data['montant'],
-      'date': dateTime,  // Utilisation de DateTime
+      'date': dateTime,
     };
   }).toList();
 
-  // Mise à jour réactive avec la nouvelle liste
-  logger.d('Transactions récupérées : $fetchedTransactions');
-  transactions.assignAll(fetchedTransactions);  // Mise à jour réactive
-  logger.d('Après Assign récupérées : $transactions');
-  
-  _calculateTotals(fetchedTransactions,userId);
+  // Mise à jour réactive
+  transactions.assignAll(fetchedTransactions);
+  logger.d('Transactions mises à jour : $transactions');
+
+  _calculateTotals(fetchedTransactions, userId);
 }
+
 
 
 
