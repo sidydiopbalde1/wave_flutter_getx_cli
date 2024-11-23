@@ -10,7 +10,7 @@ class UserModel {
   final double solde;
   final String? photo;
   final String codeSecret;
-  final String? plafond;
+  final double? plafond;
   final String role;
   final String createdAt;
   final String updatedAt;
@@ -41,7 +41,7 @@ class UserModel {
       solde: double.tryParse(json['solde'].toString()) ?? 0.0, // Gestion des valeurs invalides
       photo: json['photo'] as String?,
       codeSecret: json['code_secret'] as String,
-      plafond: json['plafond']?.toString(), // Conversion en String si nécessaire
+      plafond: json['plafond'], // Conversion en String si nécessaire
       role: json['role'] as String,
       createdAt: json['created_at'] as String,
       updatedAt: json['updated_at'] as String,

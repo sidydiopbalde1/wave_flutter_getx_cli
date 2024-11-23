@@ -2,26 +2,29 @@ import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:logger/logger.dart';
+import '../../../services/firebase_store_service.dart';
+
 
 class DistributorController extends GetxController {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirestoreService _firestoreService = FirestoreService();
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final Logger logger = Logger();
   final RxDouble totalSent = 0.0.obs;
   final RxDouble totalReceived = 0.0.obs;
 
-  var balance = 0.0.obs; // Solde utilisateur
-  var plafond = 0.0.obs; // Plafond utilisateur
-  var isLoading = false.obs; // Chargement des données
-  var transactions = <Map<String, dynamic>>[].obs; // Liste des transactions
-  var afficherSolde = true.obs; // Variable pour afficher/masquer le solde
-  var phoneNumber = ''.obs; // Numéro de téléphone de l'utilisateur
+  var balance = 0.0.obs; 
+  var plafond = 0.0.obs; 
+  var isLoading = false.obs; 
+  var transactions = <Map<String, dynamic>>[].obs; 
+  var afficherSolde = true.obs; 
+  var phoneNumber = ''.obs; 
 
   @override
   void onInit() {
     super.onInit();
-    fetchBalance(); // Charger le solde au démarrage
-    fetchPlafond(); // Charger le plafond au démarrage
+    fetchBalance(); 
+    fetchPlafond(); 
   }
 
   // Récupérer le solde utilisateur depuis Firestore
@@ -78,17 +81,16 @@ class DistributorController extends GetxController {
   }
 
   // Effectuer un retrait en utilisant le numéro de téléphone
-  Future<String> effectuerRetrait(double montant, String phoneNumber) async {
+ Future<String> effectuerRetrait(double montant, String phoneNumber) async {
     if (isLoading.value) return 'Chargement en cours. Veuillez patienter.';
-
-    if (montant > balance.value) {
-      return 'Solde insuffisant pour effectuer le retrait.';
-    }
+    print(montant);
+    print(phoneNumber);
 
     try {
       isLoading.value = true;
+      final user = _auth.currentUser;
+      if (user == null) return 'Utilisateur non connecté';
 
-      // Rechercher l'utilisateur par son numéro de téléphone dans Firestore
       final userSnapshot = await _firestore
           .collection('users')
           .where('telephone', isEqualTo: phoneNumber)
@@ -99,28 +101,39 @@ class DistributorController extends GetxController {
         return 'Utilisateur non trouvé avec ce numéro de téléphone.';
       }
 
-      // Obtenir les données de l'utilisateur
       final userDoc = userSnapshot.docs.first;
+      print(userDoc);
       final userData = userDoc.data();
-
-      // Vérifier le solde de l'utilisateur
+      print(userData);
       final userBalance = (userData['solde'] ?? 0).toDouble();
-
+      print(userBalance);
       if (userBalance < montant) {
         return 'Solde insuffisant pour effectuer le retrait.';
       }
 
-      // Mettre à jour le solde de l'utilisateur dans Firestore
-      await _firestore
-          .collection('users')
-          .doc(userDoc.id)
-          .update({'solde': userBalance - montant});
+      // Mettre à jour le solde de l'utilisateur cible
+      await _firestoreService.updateUserBalance(userDoc.id, userBalance - montant);
 
-      // Mettre à jour localement
-      balance.value = userBalance - montant;
+      // Mettre à jour le solde de l'utilisateur connecté
+      final connectedUserDoc = await _firestoreService.getUserDocument(user.uid);
+
+      final connectedUserBalance = (connectedUserDoc['solde'] ?? 0).toDouble();
+      await _firestoreService.updateUserBalance(user.uid, connectedUserBalance + montant);
+
+      // Mettre à jour le solde local
+      balance.value = connectedUserBalance + montant;
 
       // Ajouter la transaction
-      _addTransaction('Retrait', montant);
+      await _firestoreService.addDocument('transactions', {
+        'date': Timestamp.now(),
+        'frais': 0,
+        'montant': montant,
+        'receiverId': user.uid,
+        'recipientName': userData['nom'],
+        'senderId': userDoc.id,
+        'status': 'completed',
+        'type': 'Retrait',
+      });
 
       return 'Retrait effectué avec succès.';
     } catch (e) {
@@ -134,43 +147,62 @@ class DistributorController extends GetxController {
   // Effectuer un dépôt en utilisant le numéro de téléphone
   Future<String> effectuerDepot(double montant, String phoneNumber) async {
     if (isLoading.value) return 'Chargement en cours. Veuillez patienter.';
+    print(montant);
+    print(phoneNumber);
 
     try {
       isLoading.value = true;
+      final user = _auth.currentUser;
+      if (user == null) return 'Utilisateur non connecté';
 
-      // Rechercher l'utilisateur par son numéro de téléphone dans Firestore
       final userSnapshot = await _firestore
           .collection('users')
           .where('telephone', isEqualTo: phoneNumber)
           .limit(1)
           .get();
-
+    print(userSnapshot);
       if (userSnapshot.docs.isEmpty) {
         return 'Utilisateur non trouvé avec ce numéro de téléphone.';
       }
 
-      // Obtenir les données de l'utilisateur
       final userDoc = userSnapshot.docs.first;
+      print(userDoc);
       final userData = userDoc.data();
-
-      // Vérifier le plafond de l'utilisateur avant de permettre le dépôt
+      print(userData);
       final userPlafond = (userData['plafond'] ?? 0).toDouble();
+      print(userPlafond);
+      final userBalance = (userData['solde'] ?? 0).toDouble();
+      print(userBalance);
 
-      if (userPlafond + montant > plafond.value) {
-        return 'Plafond dépassé. Vous ne pouvez pas déposer ce montant.';
-      }
+      // if (userBalance + montant > userPlafond) {
+      //   return 'Plafond dépassé. Vous ne pouvez pas déposer ce montant.';
+      // }
 
-      // Mettre à jour le solde de l'utilisateur dans Firestore
-      await _firestore
-          .collection('users')
-          .doc(userDoc.id)
-          .update({'solde': (userData['solde'] ?? 0) + montant});
+      // Mettre à jour le solde de l'utilisateur cible
+      await _firestoreService.updateUserBalance(userDoc.id, userBalance + montant);
 
-      // Mettre à jour localement
-      balance.value += montant;
+      // Mettre à jour le solde de l'utilisateur connecté
+      final connectedUserDoc = await _firestoreService.getUserDocument(user.uid);
+      print(connectedUserDoc);
+      final connectedUserBalance = (connectedUserDoc['solde'] ?? 0).toDouble();
+      print(connectedUserBalance);
+      await _firestoreService.updateUserBalance(user.uid, connectedUserBalance - montant);
+
+      // Mettre à jour le solde local
+      balance.value = connectedUserBalance - montant;
+      print(balance.value);
 
       // Ajouter la transaction
-      _addTransaction('Dépôt', montant);
+      await _firestoreService.addDocument('transactions', {
+        'date': Timestamp.now(),
+        'frais': 0,
+        'montant': montant,
+        'receiverId': user.uid,
+        'recipientName': userData['nom'],
+        'senderId': userDoc.id,
+        'status': 'completed',
+        'type': 'Dépôt',
+      });
 
       return 'Dépôt effectué avec succès.';
     } catch (e) {
@@ -182,41 +214,48 @@ class DistributorController extends GetxController {
   }
 
   // Déplafonner l'utilisateur (ajuster son plafond) en fonction du numéro de téléphone
-  Future<String> deplafonnerUtilisateur(double montant, String phoneNumber) async {
+    Future<String> deplafonnerUtilisateur(double montant, String phoneNumber) async {
     if (isLoading.value) return 'Chargement en cours. Veuillez patienter.';
+    print(montant);
+    print(phoneNumber);
 
     try {
       isLoading.value = true;
+      final user = _auth.currentUser;
+      if (user == null) return 'Utilisateur non connecté';
 
-      // Rechercher l'utilisateur par son numéro de téléphone dans Firestore
       final userSnapshot = await _firestore
           .collection('users')
           .where('telephone', isEqualTo: phoneNumber)
           .limit(1)
           .get();
-
+      print(userSnapshot);
       if (userSnapshot.docs.isEmpty) {
         return 'Utilisateur non trouvé avec ce numéro de téléphone.';
       }
 
-      // Obtenir les données de l'utilisateur
       final userDoc = userSnapshot.docs.first;
+      print(userDoc);
       final userData = userDoc.data();
+      print(userData);
+      final userPlafond = userData['plafond'];
 
-      // Vérifier le plafond actuel
-      final userPlafond = (userData['plafond'] ?? 0).toDouble();
 
-      // Augmenter le plafond de l'utilisateur
-      await _firestore
-          .collection('users')
-          .doc(userDoc.id)
-          .update({'plafond': userPlafond + montant});
-
-      // Mettre à jour localement
-      plafond.value = userPlafond + montant;
+      // Mettre à jour le plafond dans Firestore
+      await _firestoreService.updateDocument('users', userDoc.id, {
+        'plafond': userPlafond + montant,
+      });
 
       // Ajouter la transaction
-      _addTransaction('Déplafonnement', montant);
+      await _firestoreService.addDocument('transactions', {
+        'date': Timestamp.now(),
+        'frais': 0,
+        'montant': montant,
+        'receiverId': userDoc.id,
+        'senderId': user.uid,
+        'type': 'Déplafonnement',
+        'status': 'completed',
+      });
 
       return 'Déplafonnement effectué avec succès.';
     } catch (e) {
@@ -228,13 +267,13 @@ class DistributorController extends GetxController {
   }
 
   // Ajouter une transaction à la liste
-  void _addTransaction(String type, double montant) {
-    transactions.insert(0, {
-      'type': type,
-      'montant': montant.toString(),
-      'date': DateTime.now().toIso8601String(),
-    });
-  }
+  // void _addTransaction(String type, double montant) {
+  //   transactions.insert(0, {
+  //     'type': type,
+  //     'montant': montant.toString(),
+  //     'date': DateTime.now().toIso8601String(),
+  //   });
+  // }
 
   // Afficher une erreur
   void _showError(String message) {
@@ -273,19 +312,17 @@ void _processTransactions(QuerySnapshot snapshot, String userId) {
     final DateTime dateTime = timestamp.toDate();
 
     return {
-      'id': doc.id,
-      'senderId': data['senderId'],
-      'montant': data['montant'],
-      'date': dateTime,  // Utilisation de DateTime
-      // Ajoutez d'autres champs selon besoin
+      ...data,
+      'id': doc.id, // Ajouter l'identifiant du document
+      'date': dateTime, // Utiliser le format DateTime pour plus de flexibilité
+      'isSender': data['senderId'] == userId, // Vérifier si l'utilisateur est l'expéditeur
     };
   }).toList();
 
-  // Vous pouvez ensuite manipuler la liste des transactions
-  logger.d('Transactions récupérées : $fetchedTransactions');
-    transactions.assignAll(transactions);  // Mise à jour réactive
-  _calculateTotals(transactions,userId);
+  // Mettre à jour les transactions localement
+  transactions.value = fetchedTransactions;
 }
+
   void _calculateTotals(List<Map<String, dynamic>> transactionsList, String senderId) {
     totalSent.value = transactionsList
         .where((t) => t['senderId'] == senderId)

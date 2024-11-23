@@ -1,66 +1,44 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'qrcode_modal.dart';
 import '../controllers/home_controller.dart';
+import 'package:intl/intl.dart'; // Pour la gestion de la date
 import '../../transaction/views/transaction_view.dart';
-import 'package:intl/intl.dart';
 
-class ActionItem {
-  final String title;
-  final IconData icon;
-  final VoidCallback onTap;
-
-  ActionItem(this.title, this.icon, this.onTap);
-}
-
-class HomeView extends GetView<HomeController> {
-  const HomeView({Key? key}) : super(key: key);
+class HomeView extends StatelessWidget {
+  final HomeController controller = Get.put(HomeController());
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
-      appBar: _buildAppBar(),
-      body: RefreshIndicator(
-        onRefresh: controller.refreshData,
-        child: Obx(() {
-          if (controller.isLoading.value) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          return SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildBalanceCard(),
-                  const SizedBox(height: 16),
-                  _buildTransactionSummary(),
-                  const SizedBox(height: 16),
-                  _buildQuickActions(),
-                  const SizedBox(height: 16),
-                  _buildTransactionsList(),
-                ],
-              ),
-            ),
-          );
-        }),
+      appBar: AppBar(
+        title: const Text('Page d\'accueil'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.exit_to_app),
+            onPressed: () {
+              // Appel de la méthode de déconnexion
+              controller.signOut();
+            },
+          ),
+        ],
       ),
-    );
-  }
-
-  AppBar _buildAppBar() {
-    return AppBar(
-      title: const Text(
-        'Feeling Finance',
-        style: TextStyle(fontWeight: FontWeight.bold),
-      ),
-      actions: [
-        IconButton(
-          icon: const Icon(Icons.logout),
-          onPressed: controller.signOut,
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 20),
+          child: Column(
+            children: [
+              _buildBalanceCard(),
+              const SizedBox(height: 20),
+              _buildTransactionSummary(),
+              const SizedBox(height: 20),
+              _buildQuickActions(),
+              const SizedBox(height: 20),
+              _buildTransactionsList(),
+            ],
+          ),
         ),
-      ],
+      ),
     );
   }
 
@@ -86,37 +64,61 @@ class HomeView extends GetView<HomeController> {
           ],
         ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Solde disponible',
-              style: TextStyle(
-                color: Colors.white70,
-                fontSize: 16,
-              ),
-            ),
-            const SizedBox(height: 8),
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Obx(() => Text(
-                      controller.isBalanceVisible.value
-                          ? '${controller.balance.value.toStringAsFixed(2)} FCFA'
-                          : '••••••',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Solde disponible',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 16,
+                        ),
                       ),
-                    )),
-                IconButton(
-                  icon: Obx(() => Icon(
-                        controller.isBalanceVisible.value
-                            ? Icons.visibility_off
-                            : Icons.visibility,
-                        color: Colors.white,
-                      )),
-                  onPressed: controller.toggleBalanceVisibility,
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Obx(() => Text(
+                                  controller.isBalanceVisible.value
+                                      ? '${controller.balance.value.toStringAsFixed(2)} FCFA'
+                                      : '••••••',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                )),
+                          ),
+                          IconButton(
+                            icon: Obx(() => Icon(
+                                  controller.isBalanceVisible.value
+                                      ? Icons.visibility_off
+                                      : Icons.visibility,
+                                  color: Colors.white,
+                                )),
+                            onPressed: controller.toggleBalanceVisibility,
+                          ),
+                          IconButton(
+                            icon: const Icon(
+                              Icons.qr_code,
+                              color: Colors.white,
+                            ),
+                            onPressed: () {
+                              Get.dialog(
+                                QRCodeModal(
+                                  qrCodeData: controller.userPhone.value,  // Passer le téléphone ici
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -190,7 +192,7 @@ class HomeView extends GetView<HomeController> {
           ),
           const SizedBox(height: 8),
           Text(
-            '$amount FCFA',
+            '${amount.toStringAsFixed(2)} FCFA',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
@@ -212,10 +214,14 @@ class HomeView extends GetView<HomeController> {
             Get.to(() => TransactionView());
           }),
           _buildActionButton('Recevoir', Icons.arrow_downward, () {
-            // Logic for "Recevoir"
+            Get.dialog(
+              QRCodeModal(
+                qrCodeData: controller.getUserQRData(),
+              ),
+            );
           }),
           _buildActionButton('Historique', Icons.history, () {
-            Get.to(() => TransactionView());
+            // Get.to(() => TransactionView());
           }),
         ],
       ),
@@ -231,13 +237,29 @@ class HomeView extends GetView<HomeController> {
       onTap: onPressed,
       child: Column(
         children: [
-          CircleAvatar(
-            backgroundColor: Colors.blue[500],
-            child: Icon(icon, color: Colors.white),
-            radius: 30,
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.blue[500],
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.blue.withOpacity(0.2),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Icon(icon, color: Colors.white, size: 28),
           ),
           const SizedBox(height: 8),
-          Text(label),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
         ],
       ),
     );
@@ -246,7 +268,26 @@ class HomeView extends GetView<HomeController> {
   Widget _buildTransactionsList() {
     return Obx(() {
       if (controller.transactions.isEmpty) {
-        return const Center(child: Text('Aucune transaction.'));
+        return Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.receipt_long_outlined,
+                size: 48,
+                color: Colors.grey[400],
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Aucune transaction',
+                style: TextStyle(
+                  color: Colors.grey[600],
+                  fontSize: 16,
+                ),
+              ),
+            ],
+          ),
+        );
       }
 
       return ListView.builder(
@@ -255,12 +296,9 @@ class HomeView extends GetView<HomeController> {
         itemCount: controller.transactions.length,
         itemBuilder: (context, index) {
           final transaction = controller.transactions[index];
-
-          // Parse la date qui est au format String
-          final DateFormat dateFormat = DateFormat('dd/MM/yyyy HH:mm');
-          final DateTime transactionDate = DateTime.parse(transaction['date'].toString());
-          final String formattedDate = dateFormat.format(transactionDate);
-
+          final DateTime transactionDate = transaction['date'] as DateTime;
+          final String formattedDate =
+              DateFormat('dd/MM/yyyy HH:mm').format(transactionDate);
           return _buildTransactionItem(transaction, formattedDate);
         },
       );
@@ -287,12 +325,13 @@ class HomeView extends GetView<HomeController> {
         ),
         child: Row(
           children: [
-            // Icône de transaction
             Container(
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: isSender ? Colors.red.withOpacity(0.1) : Colors.green.withOpacity(0.1),
+                color: isSender
+                    ? Colors.red.withOpacity(0.1)
+                    : Colors.green.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Icon(
@@ -301,7 +340,6 @@ class HomeView extends GetView<HomeController> {
               ),
             ),
             const SizedBox(width: 16),
-            // Détails de la transaction
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -313,7 +351,7 @@ class HomeView extends GetView<HomeController> {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 4),
                   Text(
                     'Le $formattedDate',
                     style: TextStyle(

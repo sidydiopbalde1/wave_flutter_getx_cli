@@ -3,7 +3,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:get/get.dart';
 import 'package:flutter/material.dart';
 import '../../../data/models/userModel.dart'; // Import du modèle UserModel
-import '../../../services/firebase_store_service.dart'; // Import du service FirestoreService
   import 'package:cloud_firestore/cloud_firestore.dart';
 class RegisterController extends GetxController {
   // Contrôleurs pour les champs de formulaire
@@ -13,7 +12,6 @@ class RegisterController extends GetxController {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
 
-  final FirestoreService _firestoreService = FirestoreService(); // Instance du service Firestore
   var isPasswordVisible = false.obs;
 
   // Méthode pour enregistrer un utilisateur
@@ -37,14 +35,15 @@ Future<void> registerUser() async {
 
       // Créer un modèle `UserModel`
       UserModel userModel = UserModel(
-        id: DateTime.now().toIso8601String() , // ID unique basé sur le timestamp
+        id: DateTime.now().toIso8601String() , 
         nom: nomController.text.trim(),
         prenom: prenomController.text.trim(),
         email: emailController.text.trim(),
         telephone: telephoneController.text.trim(),
         solde: 0.0,
-        codeSecret: '1234', // Code secret initial
-        role: 'client', // Rôle utilisateur
+        plafond: 50000,
+        codeSecret: '1234', 
+        role: 'client', 
         createdAt: DateTime.now().toIso8601String(),
         updatedAt: DateTime.now().toIso8601String(),
       );

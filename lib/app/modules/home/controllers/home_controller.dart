@@ -18,6 +18,7 @@ class HomeController extends GetxController {
   final RxBool isLoading = false.obs;
   final RxDouble totalSent = 0.0.obs;
   final RxDouble totalReceived = 0.0.obs;
+  final RxString userPhone = ''.obs;
 
   @override
   void onInit() {
@@ -29,6 +30,7 @@ class HomeController extends GetxController {
     await Future.wait([
       fetchBalance(),
       fetchUserTransactions(),
+      fetchUserPhone(),
     ]);
   }
 
@@ -54,6 +56,38 @@ Future<void> fetchBalance() async {
     _showError('Impossible de récupérer le solde');
   }
 }
+  Future<void> fetchUserPhone() async {
+    try {
+      final user = _auth.currentUser;
+      if (user != null) {
+        final docSnapshot = await _firestore.collection('users').doc(user.uid).get();
+        if (docSnapshot.exists) {
+          userPhone.value = docSnapshot.data()?['telephone'] ?? '';
+          logger.i('Numéro de téléphone récupéré: ${userPhone.value}');
+        }
+      }
+    } catch (e) {
+      logger.e('Erreur lors de la récupération du numéro de téléphone: $e');
+    }
+  }
+
+  String getUserQRData() {
+    try {
+      final user = _auth.currentUser;
+      if (user != null && userPhone.value.isNotEmpty) {
+        // Création d'un objet JSON avec les informations de l'utilisateur
+        final Map<String, String> userData = {
+          'userId': user.uid,
+          'telephone': userPhone.value,
+        };
+        return userData.toString();
+      }
+      return '';
+    } catch (e) {
+      logger.e('Erreur lors de la génération des données QR: $e');
+      return '';
+    }
+  }
 
 Future<void> fetchUserTransactions() async {
   try {
@@ -101,9 +135,6 @@ void _processTransactions(QuerySnapshot snapshot, String userId) {
 
   _calculateTotals(fetchedTransactions, userId);
 }
-
-
-
 
   void _calculateTotals(List<Map<String, dynamic>> transactionsList, String userId) {
     totalSent.value = transactionsList

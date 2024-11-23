@@ -90,6 +90,7 @@ class _QRScannerViewState extends State<QRScannerPageView> {
   void _showAmountDialog(String qrData) {
     final TextEditingController montantController = TextEditingController();
     final String scannedPhoneNumber = qrData;
+    print(qrData);
 
     Get.dialog(
       AlertDialog(
@@ -160,15 +161,16 @@ class _QRScannerViewState extends State<QRScannerPageView> {
   // Traitement de la transaction après confirmation
   void _processTransaction(String montant, String phoneNumber) async {
     final double? amount = double.tryParse(montant.replaceAll(',', '.'));
+    print(amount);
     if (amount == null) {
-      // Get.snackbar(
-      //   'Erreur',
-      //   'Veuillez entrer un montant valide',
-      //   snackPosition: SnackPosition.BOTTOM,
-      //   backgroundColor: Colors.red.withOpacity(0.1),
-      //   colorText: Colors.red,
-      //   duration: const Duration(seconds: 3),
-      // );
+      Get.snackbar(
+        'Erreur',
+        'Veuillez entrer un montant valide',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.red.withOpacity(0.1),
+        colorText: Colors.red,
+        duration: const Duration(seconds: 3),
+      );
       return;
     }
 
@@ -188,18 +190,7 @@ class _QRScannerViewState extends State<QRScannerPageView> {
           message = 'Type de service non reconnu';
       }
 
-      // Fermer la snackbar après un petit délai
-      Future.delayed(const Duration(milliseconds: 500), () {
-        // Get.snackbar(
-        //   widget.serviceType,
-        //   message,
-        //   snackPosition: SnackPosition.BOTTOM,
-        //   backgroundColor: Colors.green.withOpacity(0.1),
-        //   colorText: Colors.green,
-        //   duration: const Duration(seconds: 3),
-        // );
-        // Get.back(); // Ferme les dialogues après l'affichage de la snackbar
-      });
+ 
     } catch (e) {
       // Get.snackbar(
       //   'Erreur',

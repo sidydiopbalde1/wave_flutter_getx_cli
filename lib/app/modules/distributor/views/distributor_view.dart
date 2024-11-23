@@ -248,7 +248,7 @@ class DistributorView extends StatelessWidget {
   }
 
   Widget _buildTransactionItem(Map<String, dynamic> transaction) {
-    final bool isDeposit = transaction['type'] == 'Dépôt';
+    final bool isDeposit = transaction['type'] == 'transfert';
     final Color color = isDeposit ? const Color(0xFF4CAF50) : const Color(0xFFE53935);
 
     return Padding(
@@ -280,7 +280,7 @@ class DistributorView extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  _formatDate(transaction['date']),
+                  _formatDate(transaction['date'].toString()),
                   style: const TextStyle(
                     color: Colors.grey,
                     fontSize: 14,
