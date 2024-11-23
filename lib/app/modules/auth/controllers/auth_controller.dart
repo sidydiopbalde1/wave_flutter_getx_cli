@@ -1,15 +1,18 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:get/get.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../services/auth_service.dart';
 import '../../../routes/app_pages.dart';
+import '../../../data/models/userModel.dart';
 
 class AuthController extends GetxController {
   final AuthService _authService; // Service d'authentification personnalisé
   final Rx<User?> user = Rx<User?>(null); // Utilisateur actuellement connecté
   final RxBool isLoading = false.obs; // Indicateur d'état de chargement
-
+  final GoogleSignIn _googleSignIn= GoogleSignIn();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
   AuthController(this._authService);
 
   @override
@@ -141,29 +144,102 @@ Future<void> signInWithEmailAndPassword(String email, String password) async {
   }
 
   /// Connexion avec Google
-  Future<void> signInWithGoogle() async {
+  // Future<void> signInWithGoogle() async {
+  //   try {
+  //     isLoading.value = true;
+
+  //     // Connexion via Google
+  //     final User? googleUser = await _authService.signInWithGoogle();
+
+  //     if (googleUser != null) {
+  //       Get.offAllNamed(Routes.HOME); // Redirection
+  //     } else {
+  //       Get.snackbar(
+  //         'Erreur',
+  //         'Échec de la connexion Google.',
+  //         snackPosition: SnackPosition.BOTTOM,
+  //       );
+  //     }
+  //   } catch (e) {
+  //     _handleError('Échec de la connexion Google', e);
+  //   } finally {
+  //     isLoading.value = false;
+  //   }
+  // }
+
+Future<UserCredential?> signInWithGoogle() async {
     try {
-      isLoading.value = true;
+      // Déconnexion préalable pour éviter les conflits
+      await _googleSignIn.signOut();
+      await _authService.signOut();
 
-      // Connexion via Google
-      final User? googleUser = await _authService.signInWithGoogle();
+      // Déclencher le flux de connexion Google
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
 
-      if (googleUser != null) {
-        Get.offAllNamed(Routes.HOME); // Redirection
-      } else {
-        Get.snackbar(
-          'Erreur',
-          'Échec de la connexion Google.',
-          snackPosition: SnackPosition.BOTTOM,
+      if (googleUser == null) {
+        throw FirebaseAuthException(
+          code: 'ERROR_ABORTED_BY_USER',
+          message: 'Sign in aborted by user',
+        );
+      }
+
+      // Obtenir les détails d'authentification
+      try {
+        final GoogleSignInAuthentication googleAuth =
+        await googleUser.authentication;
+
+        // Créer les credentials Firebase
+        final credential = GoogleAuthProvider.credential(
+          accessToken: googleAuth.accessToken,
+          idToken: googleAuth.idToken,
+        );
+
+        // Connexion à Firebase
+        final UserCredential userCredential =
+        await _auth.signInWithCredential(credential);
+
+        // Vérifier si l'utilisateur existe dans Firestore
+        final userDoc = await _firestore
+            .collection('users')
+            .doc(userCredential.user?.uid)
+            .get();
+
+        if (!userDoc.exists) {
+          // Créer un nouveau document utilisateur
+          final user = UserModel(
+            id: userCredential.user!.uid,
+            nom: userCredential.user?.displayName ?? '',
+            prenom: '',
+            role: 'client',
+            email: userCredential.user?.email ?? '',
+            telephone: '',
+            solde: 0.0,
+            photo: '',
+            codeSecret: '',
+            createdAt: '',
+            updatedAt: ''
+
+          );
+
+          await _firestore
+              .collection('users')
+              .doc(user.id)
+              .set(user.toFirestore());
+        }
+
+        return userCredential;
+      } catch (e) {
+        print('Google Auth Error: $e');
+        throw FirebaseAuthException(
+          code: 'ERROR_GOOGLE_AUTH',
+          message: 'Failed to authenticate with Google: $e',
         );
       }
     } catch (e) {
-      _handleError('Échec de la connexion Google', e);
-    } finally {
-      isLoading.value = false;
+      print('Sign In Error: $e');
+      rethrow;
     }
   }
-
   /// Déconnexion
   Future<void> signOut() async {
     try {
@@ -174,12 +250,5 @@ Future<void> signInWithEmailAndPassword(String email, String password) async {
     }
   }
 
-  /// Gestion des erreurs avec messages utilisateur
-  // void _handleError(String title, dynamic error) {
-  //   Get.snackbar(
-  //     title,
-  //     error.toString(),
-  //     snackPosition: SnackPosition.BOTTOM,
-  //   );
-  // }
+ 
 }

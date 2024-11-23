@@ -106,90 +106,15 @@ class TransactionController extends GetxController {
       isLoading.value = false;
     }
   }
-
-  // Transférer à un contact
-  Future<void> transferToContact(Contact contact, double amount) async {
-    try {
-      // Vérifier si l'utilisateur est connecté
-      final senderId = authController.user.value?.uid;
-      if (senderId == null) {
-        Get.snackbar(
-          'Erreur',
-          'Utilisateur non connecté. Veuillez vous authentifier.',
-          snackPosition: SnackPosition.BOTTOM,
-        );
-        return;
-      }
-
-      // Obtenir l'ID du destinataire (numéro de téléphone du contact)
-      final receiverId = contact.phones.isNotEmpty ? contact.phones.first.number : 'Inconnu';
-
-      // Calculer les frais (par exemple 5% du montant)
-      final double frais = amount * 0.05;
-
-      // Vérifier si le destinataire existe dans la collection 'users'
-      final userExists = await _userService.userExistsByPhone(receiverId);
-      if (!userExists) {
-        Get.snackbar('Erreur', 'Le numéro de téléphone n\'est pas associé à un utilisateur.');
-        return;
-      }
-
-      // Récupérer le solde actuel de l'utilisateur
-      final userDoc = await _firestoreService.getUserDocument(senderId);
-      final double currentBalance = userDoc['balance'] ?? 0.0;
-
-      // Vérifier si l'utilisateur a assez d'argent pour effectuer le transfert
-      if (currentBalance < (amount + frais)) {
-        Get.snackbar(
-          'Erreur',
-          'Solde insuffisant pour effectuer le transfert.',
-          snackPosition: SnackPosition.BOTTOM,
-        );
-        return;
-      }
-
-      // Soustraire le montant du solde de l'utilisateur
-      final newBalance = currentBalance - (amount + frais);
-
-      // Mettre à jour le solde de l'utilisateur dans Firestore
-      await _firestoreService.updateUserBalance(senderId, newBalance);
-
-      // Créer l'objet TransactionModel
-      final transaction = TransactionModel(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        type: 'transfer',
-        montant: amount,
-        date: Timestamp.now(),
-        recipientName: contact.displayName,
-        senderId: senderId,
-        receiverId: receiverId,
-        status: 'completed',
-        frais: frais,
-      );
-
-      // Ajouter la transaction à Firestore
-      await _firestoreService.addDocument('transactions', transaction.toFirestore());
-
-      // Afficher un message de succès
-      Get.snackbar(
-        'Succès',
-        'Transfert effectué à ${contact.displayName}',
-        snackPosition: SnackPosition.BOTTOM,
-      );
-    } catch (e) {
-      Get.snackbar(
-        'Erreur',
-        'Impossible d\'effectuer le transfert : $e',
-        snackPosition: SnackPosition.BOTTOM,
-      );
-    }
-  }
+  
+  
 
   // Transférer à plusieurs contacts
 Future<void> transferToMultipleContacts(List<Contact> selectedContacts, double amount) async {
   try {
     // Vérifier si l'utilisateur est connecté
     final senderId = authController.user.value?.uid;
+    print('Sender ID (Utilisateur connecté) : $senderId');
     if (senderId == null) {
       Get.snackbar(
         'Erreur',
@@ -199,41 +124,119 @@ Future<void> transferToMultipleContacts(List<Contact> selectedContacts, double a
       return;
     }
 
-    // Calculer le montant total nécessaire (montant * nombre de contacts + frais totaux)
+    // Calculer les frais et le montant total nécessaire
     final double fraisParTransfert = amount * 0.05;
     final double montantTotalNecessaire = (amount + fraisParTransfert) * selectedContacts.length;
+    print('Frais par transfert : $fraisParTransfert');
+    print('Montant total nécessaire : $montantTotalNecessaire');
 
     // Vérifier le solde de l'utilisateur
     final userDoc = await _firestoreService.getUserDocument(senderId);
-    final double currentBalance = userDoc['solde'] ?? 0.0;
+    print('Données utilisateur : $userDoc');
+    final currentBalance = userDoc['solde'] ?? 0.0;
+    print('Solde actuel : $currentBalance');
 
     if (montantTotalNecessaire > currentBalance) {
+      print('Erreur : Solde insuffisant');
       Get.snackbar(
-        'Erreur', 
+        'Erreur',
         'Solde insuffisant pour effectuer tous les transferts. Solde nécessaire: ${montantTotalNecessaire.toStringAsFixed(2)}',
         snackPosition: SnackPosition.BOTTOM,
       );
       return;
     }
 
-    // Effectuer les transferts
+    // Effectuer les transferts pour chaque contact
     for (var contact in selectedContacts) {
-      await transferToContact(contact, amount);
+      print('Traitement du contact : ${contact.displayName}');
+      final receiverId = contact.phones.isNotEmpty ? contact.phones.first.number : null;
+      print('Numéro de téléphone du contact : $receiverId');
+
+      if (receiverId == null) {
+        print('Erreur : Numéro de téléphone non disponible pour ${contact.displayName}');
+        Get.snackbar(
+          'Erreur',
+          'Le numéro de téléphone de ${contact.displayName} est invalide.',
+          snackPosition: SnackPosition.BOTTOM,
+        );
+        continue;
+      }
+
+      final userExists = await _userService.userExistsByPhone(receiverId);
+      print('Existence de l\'utilisateur pour $receiverId : $userExists');
+      if (!userExists) {
+        print('Erreur : Utilisateur non trouvé pour $receiverId');
+        Get.snackbar(
+          'Erreur',
+          'Le numéro de téléphone de ${contact.displayName} n\'est pas associé à un utilisateur.',
+          snackPosition: SnackPosition.BOTTOM,
+        );
+        continue;
+      }
+
+      final frais = amount * 0.05;
+      print('Frais calculés pour ${contact.displayName} : $frais');
+
+      if (currentBalance < (amount + frais)) {
+        print('Erreur : Solde insuffisant pour ${contact.displayName}');
+        Get.snackbar(
+          'Erreur',
+          'Solde insuffisant pour effectuer le transfert à ${contact.displayName}.',
+          snackPosition: SnackPosition.BOTTOM,
+        );
+        return;
+      }
+
+      final double newBalance = currentBalance - (amount + frais);
+      print('Nouveau solde après transfert à ${contact.displayName} : $newBalance');
+
+      // Mettre à jour le solde de l'utilisateur dans Firestore
+      await _firestoreService.updateUserBalance(senderId, newBalance);
+
+      // Créer l'objet TransactionModel
+      final transaction = TransactionModel(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        type: 'transfert',
+        montant: amount,
+        date: Timestamp.now(),
+        recipientName: contact.displayName,
+        senderId: senderId,
+        receiverId: receiverId,
+        status: 'completed',
+        frais: frais,
+      );
+
+      print('Transaction créée pour ${contact.displayName} : ${transaction.toFirestore()}');
+
+      // Ajouter la transaction à Firestore
+      await _firestoreService.addDocument('transactions', transaction.toFirestore());
+
+      // Afficher un message de succès
+      print('Succès : Transfert effectué à ${contact.displayName}');
+      Get.snackbar(
+        'Succès',
+        'Transfert effectué à ${contact.displayName}',
+        snackPosition: SnackPosition.BOTTOM,
+      );
     }
 
+    print('Tous les transferts ont été effectués avec succès.');
     Get.snackbar(
-      'Succès', 
+      'Succès',
       'Transfert groupé effectué à ${selectedContacts.length} contacts',
       backgroundColor: Colors.green,
       colorText: Colors.white,
     );
   } catch (e) {
+    print('Erreur lors du transfert : $e');
     Get.snackbar(
-      'Erreur', 
-      'Impossible d\'effectuer le transfert groupé : $e',
+      'Erreur',
+      'Impossible d\'effectuer le transfert : $e',
       backgroundColor: Colors.red,
       colorText: Colors.white,
     );
   }
 }
+
+
 }

@@ -2,7 +2,7 @@
 // import 'package:cloud_firestore/cloud_firestore.dart';
 
 class UserModel {
-  final int id;
+  final String id;
   final String nom;
   final String prenom;
   final String email;
@@ -33,7 +33,7 @@ class UserModel {
   /// Factory pour créer une instance depuis un `Map` (Firestore ou autre)
   factory UserModel.fromFirestore(Map<String, dynamic> json) {
     return UserModel(
-      id: json['id'] as int,
+      id: json['id'] as String,
       nom: json['nom'] as String,
       prenom: json['prenom'] as String,
       email: json['email'] as String,

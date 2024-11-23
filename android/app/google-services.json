@@ -10,7 +10,7 @@
       "client_info": {
         "mobilesdk_app_id": "1:304329472585:android:d1a19824a49ff4aa0c1d98",
         "android_client_info": {
-          "package_name": "com.wave_getx_cli_v2.wave_getx_cli_v2"
+          "package_name": "com.example.wave_getx_cli"
         }
       },
       "oauth_client": [

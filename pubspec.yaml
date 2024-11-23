@@ -17,7 +17,7 @@ dependencies:
   firebase_core: ^3.4.0
   firebase_auth: ^5.2.0
   cloud_firestore: ^5.4.0
-  google_sign_in: ^6.2.1
+  google_sign_in: ^6.1.6
   flutter_facebook_auth: ^7.1.0
   font_awesome_flutter: ^10.6.0
   animate_do: ^3.3.4
@@ -28,6 +28,8 @@ dependencies:
   intl: ^0.20.0
   flutter_contacts: ^1.1.7+1
   mobile_scanner: ^6.0.2
+  phone_number: ^2.0.1
+  uuid: ^3.0.7
 
 
 dev_dependencies:

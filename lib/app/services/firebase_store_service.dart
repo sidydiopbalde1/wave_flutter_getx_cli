@@ -64,7 +64,9 @@
 
     Future<DocumentSnapshot> getUserDocument(String userId) async {
     try {
+      print(userId);
       final userDoc = await _firestore.collection('users').doc(userId).get();
+      print(userDoc);
 
       // Vérifier si le document existe
       if (!userDoc.exists) {
@@ -78,8 +80,10 @@
   }
 
   // Méthode pour mettre à jour le solde de l'utilisateur
-  Future<void> updateUserBalance(String userId, double newBalance) async {
+  Future<void> updateUserBalance(String userId,  double newBalance) async {
     try {
+      print('userId dans updateUserBalance ' + userId);
+      print('newbalance dans updateUserBalance $newBalance');
       await _firestore.collection('users').doc(userId).update({
         'solde': newBalance,
       });

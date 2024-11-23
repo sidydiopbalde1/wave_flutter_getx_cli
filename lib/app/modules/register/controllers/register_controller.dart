@@ -37,7 +37,7 @@ Future<void> registerUser() async {
 
       // Créer un modèle `UserModel`
       UserModel userModel = UserModel(
-        id: DateTime.now().millisecondsSinceEpoch, // ID unique basé sur le timestamp
+        id: DateTime.now().toIso8601String() , // ID unique basé sur le timestamp
         nom: nomController.text.trim(),
         prenom: prenomController.text.trim(),
         email: emailController.text.trim(),
