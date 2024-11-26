@@ -1,9 +1,12 @@
 import 'package:get/get.dart';
+import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:logger/logger.dart';
+import 'dart:async';
 import '../../../services/firebase_store_service.dart';
-
+import '../../../routes/app_pages.dart';
+import '../../../data/models/transactionModel.dart';
 
 class DistributorController extends GetxController {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -12,22 +15,70 @@ class DistributorController extends GetxController {
   final Logger logger = Logger();
   final RxDouble totalSent = 0.0.obs;
   final RxDouble totalReceived = 0.0.obs;
+    final message = ''.obs;
+      final montantController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
 
-  var balance = 0.0.obs; 
-  var plafond = 0.0.obs; 
-  var isLoading = false.obs; 
-  var transactions = <Map<String, dynamic>>[].obs; 
-  var afficherSolde = true.obs; 
-  var phoneNumber = ''.obs; 
+  var balance = 0.0.obs;
+  var plafond = 0.0.obs;
+  var isLoading = false.obs;
+  var transactions = <Map<String, dynamic>>[].obs;
+  var afficherSolde = true.obs;
+  var phoneNumber = ''.obs;
+  StreamSubscription<DocumentSnapshot>? _balanceSubscription;
+  StreamSubscription<QuerySnapshot>? _transactionsSubscription;
+
+  String? getCurrentUserId() {
+    return _auth.currentUser?.uid;
+  }
 
   @override
   void onInit() {
     super.onInit();
-    fetchBalance(); 
-    fetchPlafond(); 
+    setupRealtimeListeners();
+    fetchBalance();
+    fetchPlafond();
+    fetchUserTransactions();
   }
 
-  // Récupérer le solde utilisateur depuis Firestore
+  @override
+  void onClose() {
+    _balanceSubscription?.cancel();
+    _transactionsSubscription?.cancel();
+     montantController.dispose();
+    super.onClose();
+  }
+
+  void setupRealtimeListeners() {
+    final user = _auth.currentUser;
+    if (user != null) {
+      // Écoute en temps réel du solde
+      _balanceSubscription = _firestore
+          .collection('users')
+          .doc(user.uid)
+          .snapshots()
+          .listen((snapshot) {
+        if (snapshot.exists) {
+          balance.value = (snapshot.data()?['solde'] ?? 0).toDouble();
+          plafond.value = (snapshot.data()?['plafond'] ?? 0).toDouble();
+        }
+      });
+
+      // Écoute en temps réel des transactions
+      _transactionsSubscription = _firestore
+          .collection('transactions')
+          .where(Filter.or(
+            Filter('senderId', isEqualTo: user.uid),
+            Filter('receiverId', isEqualTo: user.uid),
+          ))
+          .orderBy('date', descending: true)
+          .snapshots()
+          .listen((snapshot) {
+        _processTransactions(snapshot, user.uid);
+      });
+    }
+  }
+
   Future<void> fetchBalance() async {
     try {
       isLoading.value = true;
@@ -40,19 +91,18 @@ class DistributorController extends GetxController {
         if (docSnapshot.exists) {
           balance.value = (docSnapshot.data()?['solde'] ?? 0).toDouble();
         } else {
-          _showError('Profil utilisateur non trouvé');
+          showMessage('Erreur', 'Profil utilisateur non trouvé');
         }
       }
     } catch (e) {
       logger.e('Error fetching balance: $e');
-      _showError('Impossible de récupérer le solde');
+      showMessage('Erreur', 'Impossible de récupérer le solde');
     } finally {
       isLoading.value = false;
     }
   }
 
-  // Récupérer le plafond utilisateur depuis Firestore
-  Future<void> fetchPlafond() async {
+Future<void> fetchPlafond() async {
     try {
       isLoading.value = true;
       final user = _auth.currentUser;
@@ -64,22 +114,20 @@ class DistributorController extends GetxController {
         if (docSnapshot.exists) {
           plafond.value = (docSnapshot.data()?['plafond'] ?? 0).toDouble();
         } else {
-          _showError('Profil utilisateur non trouvé');
+          showMessage('Erreur', 'Profil utilisateur non trouvé');
         }
       }
     } catch (e) {
       logger.e('Error fetching plafond: $e');
-      _showError('Impossible de récupérer le plafond');
+      showMessage('Erreur', 'Impossible de récupérer le plafond');
     } finally {
       isLoading.value = false;
     }
   }
 
-  // Fonction pour afficher ou masquer le solde
   void toggleAfficherSolde() {
     afficherSolde.value = !afficherSolde.value;
   }
-
   // Effectuer un retrait en utilisant le numéro de téléphone
  Future<String> effectuerRetrait(double montant, String phoneNumber) async {
     if (isLoading.value) return 'Chargement en cours. Veuillez patienter.';
@@ -188,7 +236,7 @@ class DistributorController extends GetxController {
       print(connectedUserBalance);
       await _firestoreService.updateUserBalance(user.uid, connectedUserBalance - montant);
 
-      // Mettre à jour le solde local
+      // Mettre à jour le solde localy*yy
       balance.value = connectedUserBalance - montant;
       print(balance.value);
 
@@ -266,70 +314,171 @@ class DistributorController extends GetxController {
     }
   }
 
-  // Ajouter une transaction à la liste
-  // void _addTransaction(String type, double montant) {
-  //   transactions.insert(0, {
-  //     'type': type,
-  //     'montant': montant.toString(),
-  //     'date': DateTime.now().toIso8601String(),
-  //   });
-  // }
-
-  // Afficher une erreur
-  void _showError(String message) {
-    Get.snackbar('Erreur', message,
-        snackPosition: SnackPosition.BOTTOM, duration: Duration(seconds: 3));
+  void showMessage(String title, String message) {
+    Get.snackbar(
+      title,
+      message,
+      snackPosition: SnackPosition.TOP,
+      backgroundColor: title == 'Succès' ? Colors.green : Colors.red,
+      colorText: Colors.white,
+      duration: const Duration(seconds: 3),
+      margin: const EdgeInsets.all(10),
+      borderRadius: 10,
+      icon: Icon(
+        title == 'Succès' ? Icons.check_circle : Icons.error,
+        color: Colors.white,
+      ),
+    );
   }
-    Future<void> fetchUserTransactions() async {
-  try {
-    isLoading.value = true;
-    final user = _auth.currentUser;
 
-    if (user != null) {
-      final QuerySnapshot transactionsSnapshot = await _firestore
-          .collection('transactions')
-          .where('senderId', isEqualTo: user.uid)
-          .orderBy('date', descending: true)
-          .get();
+  Future<void> fetchUserTransactions() async {
+    try {
+      isLoading.value = true;
+      final user = _auth.currentUser;
 
-      // Traitement des transactions
-      _processTransactions(transactionsSnapshot, user.uid);
+      if (user != null) {
+        final QuerySnapshot transactionsSnapshot = await _firestore
+            .collection('transactions')
+            .where(Filter.or(
+              Filter('senderId', isEqualTo: user.uid),
+              Filter('receiverId', isEqualTo: user.uid),
+            ))
+            .orderBy('date', descending: true)
+            .get();
+
+        _processTransactions(transactionsSnapshot, user.uid);
+      }
+    } catch (e) {
+      logger.e('Erreur lors de la récupération des transactions: $e');
+      showMessage('Erreur', 'Impossible de récupérer vos transactions');
+    } finally {
+      isLoading.value = false;
     }
-  } catch (e) {
-    logger.e('Erreur lors de la récupération des transactions: $e');
-    _showError('Impossible de récupérer vos transactions');
-  } finally {
-    isLoading.value = false;
   }
-}
 
-void _processTransactions(QuerySnapshot snapshot, String userId) {
-  final fetchedTransactions = snapshot.docs.map((doc) {
-    final data = doc.data() as Map<String, dynamic>;
+  void _processTransactions(QuerySnapshot snapshot, String userId) {
+    final fetchedTransactions = snapshot.docs.map((doc) {
+      final data = doc.data() as Map<String, dynamic>;
+      final Timestamp timestamp = data['date'] as Timestamp;
+      final DateTime dateTime = timestamp.toDate();
 
-    // Conversion de 'date' en Timestamp et puis en DateTime
-    final Timestamp timestamp = data['date'] as Timestamp;
-    final DateTime dateTime = timestamp.toDate();
+      return {
+        ...data,
+        'id': doc.id,
+        'date': dateTime,
+        'isSender': data['senderId'] == userId,
+      };
+    }).toList();
 
-    return {
-      ...data,
-      'id': doc.id, // Ajouter l'identifiant du document
-      'date': dateTime, // Utiliser le format DateTime pour plus de flexibilité
-      'isSender': data['senderId'] == userId, // Vérifier si l'utilisateur est l'expéditeur
-    };
-  }).toList();
+    transactions.value = fetchedTransactions;
+    _calculateTotals(fetchedTransactions, userId);
+  }
 
-  // Mettre à jour les transactions localement
-  transactions.value = fetchedTransactions;
-}
+  Future<void> signOut() async {
+    try {
+      await _auth.signOut();
+      showMessage('Succès', 'Déconnexion réussie');
+      Get.offAllNamed(Routes.LOGIN);
+    } catch (e) {
+      logger.e('Error signing out: $e');
+      showMessage('Erreur', 'Échec de la déconnexion');
+    }
+  }
 
-  void _calculateTotals(List<Map<String, dynamic>> transactionsList, String senderId) {
+  void _calculateTotals(List<Map<String, dynamic>> transactionsList, String userId) {
     totalSent.value = transactionsList
-        .where((t) => t['senderId'] == senderId)
+        .where((t) => t['senderId'] == userId)
         .fold(0.0, (sum, t) => sum + (t['montant'] ?? 0.0));
 
     totalReceived.value = transactionsList
-        .where((t) => t['receiverId'] == senderId)
+        .where((t) => t['receiverId'] == userId)
         .fold(0.0, (sum, t) => sum + (t['montant'] ?? 0.0));
   }
+
+  Future<void> processTransaction({
+    required String serviceType,
+    required String phoneNumber,
+    required int montant,
+  }) async {
+    try {
+      isLoading.value = true;
+      
+      // Vérifier si l'utilisateur est connecté
+      final userId = _auth.currentUser?.uid;
+      if (userId == null) {
+        throw Exception('Utilisateur non connecté');
+      }
+
+      // Récupérer le document utilisateur pour vérifier le solde
+      final userDoc = await _firestoreService.getUserDocument(userId);
+      final currentBalance = userDoc['solde'] ?? 0.0;
+      
+      double newBalance = currentBalance;
+      String transactionType = serviceType.toLowerCase();
+      double frais = 0.0;
+
+      // Calculer les frais et le nouveau solde selon le type d'opération
+      switch (serviceType.toLowerCase()) {
+        case 'retrait':
+          frais = montant * 0.02; // 2% de frais pour le retrait
+          if (montant + frais > currentBalance) {
+            throw Exception('Solde insuffisant pour effectuer le retrait');
+          }
+          newBalance = currentBalance - (montant + frais);
+          break;
+
+        case 'dépôt':
+          frais = montant * 0.01; // 1% de frais pour le dépôt
+          newBalance = currentBalance + montant - frais;
+          break;
+
+        case 'déplafonnement':
+          // Logique spécifique pour le déplafonnement
+          // Par exemple, vérifier si le montant demandé est valide
+          if (montant <= userDoc['plafond']) {
+           message.value='Le nouveau plafond doit être supérieur au plafond actuel';
+          }
+           await _firestoreService.updateDocument('users', userDoc.id, {
+            'plafond': userDoc['plafond'] + montant,
+           });
+          transactionType = 'déplafonnement';
+          break;
+
+        default:
+          throw Exception('Type d\'opération non reconnu');
+      }
+
+      // Mettre à jour le solde si ce n'est pas un déplafonnement
+      if (serviceType.toLowerCase() != 'déplafonnement') {
+        await _firestoreService.updateUserBalance(userId, newBalance);
+      }
+
+      // Créer la transaction
+      final transaction = TransactionModel(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        type: transactionType,
+        montant: montant.toDouble(),
+        date: Timestamp.now(),
+        recipientName: phoneNumber, // Utiliser le numéro de téléphone comme nom du destinataire
+        senderId: userId,
+        receiverId: phoneNumber,
+        status: 'completed',
+        frais: frais,
+      );
+
+      // Enregistrer la transaction
+      await _firestoreService.addDocument('transactions', transaction.toFirestore());
+
+      message.value = 'Opération effectuée avec succès';
+    } catch (e) {
+      message.value = e.toString();
+      rethrow;
+    } finally {
+      isLoading.value = false;
+    }
+  }
+    void updateMessage(String newMessage) {
+    message.value = newMessage;
+  }
+
 }

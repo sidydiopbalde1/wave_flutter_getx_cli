@@ -1,12 +1,16 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'qrcode_modal.dart';
 import '../controllers/home_controller.dart';
 import 'package:intl/intl.dart'; // Pour la gestion de la date
 import '../../transaction/views/transaction_view.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../../plannification_transfer/views/plannification_transfer_view.dart';
 
 class HomeView extends StatelessWidget {
   final HomeController controller = Get.put(HomeController());
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
   @override
   Widget build(BuildContext context) {
@@ -220,8 +224,8 @@ class HomeView extends StatelessWidget {
               ),
             );
           }),
-          _buildActionButton('Historique', Icons.history, () {
-            // Get.to(() => TransactionView());
+          _buildActionButton('Plannifier', Icons.schedule, () {
+             Get.to(() => PlannificationTransferView());
           }),
         ],
       ),
@@ -265,7 +269,7 @@ class HomeView extends StatelessWidget {
     );
   }
 
-  Widget _buildTransactionsList() {
+   Widget _buildTransactionsList() {
     return Obx(() {
       if (controller.transactions.isEmpty) {
         return Center(
@@ -296,18 +300,38 @@ class HomeView extends StatelessWidget {
         itemCount: controller.transactions.length,
         itemBuilder: (context, index) {
           final transaction = controller.transactions[index];
-          final DateTime transactionDate = transaction['date'] as DateTime;
-          final String formattedDate =
-              DateFormat('dd/MM/yyyy HH:mm').format(transactionDate);
+          final date = _getTransactionDate(transaction['date']);
+          final String formattedDate = DateFormat('dd/MM/yyyy HH:mm').format(date);
           return _buildTransactionItem(transaction, formattedDate);
         },
       );
     });
   }
 
-  Widget _buildTransactionItem(Map<String, dynamic> transaction, String formattedDate) {
-    final bool isSender = transaction['senderId'] != null;
+DateTime _getTransactionDate(dynamic date) {
+  if (date is Timestamp) {
+    return date.toDate(); // Appeler toDate uniquement si c'est un Timestamp
+  } else if (date is DateTime) {
+    return date; // Retourner directement si c'est un DateTime
+  } else if (date is String) {
+    // Si c'est une chaîne, tenter de la parser
+    return DateTime.parse(date);
+  } else {
+    // Fallback: Retourner la date actuelle si le type est inconnu
+    return DateTime.now();
+  }
+}
 
+
+  Widget _buildTransactionItem(Map<String, dynamic> transaction, String formattedDate) {
+    final bool isSender = transaction['senderId'] == _auth.currentUser?.uid;
+    print('isSender $isSender');
+    final dynamic transactionDate = _getTransactionDate(transaction['date']);
+    
+    final bool canCancel = controller.canCancelTransaction(transactionDate) &&
+        isSender &&
+        (transaction['status'] != 'cancelled');
+  print('ANNULATION: $canCancel');
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Container(
@@ -315,6 +339,9 @@ class HomeView extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
+          border: transaction['status'] == 'cancelled'
+              ? Border.all(color: Colors.red.withOpacity(0.5))
+              : null,
           boxShadow: [
             BoxShadow(
               color: Colors.grey.withOpacity(0.1),
@@ -325,18 +352,12 @@ class HomeView extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: isSender
-                    ? Colors.red.withOpacity(0.1)
-                    : Colors.green.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(20),
-              ),
+            CircleAvatar(
+              backgroundColor: Colors.blue[300],
+              radius: 25,
               child: Icon(
                 isSender ? Icons.arrow_upward : Icons.arrow_downward,
-                color: isSender ? Colors.red : Colors.green,
+                color: Colors.white,
               ),
             ),
             const SizedBox(width: 16),
@@ -345,23 +366,23 @@ class HomeView extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '${transaction['montant'].toStringAsFixed(2)} FCFA',
+                    '${isSender ? 'Envoyé à' : 'Reçu de'} ${transaction['recipientName']}',
                     style: const TextStyle(
-                      fontSize: 16,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    'Le $formattedDate',
-                    style: TextStyle(
-                      color: Colors.grey[600],
-                      fontSize: 14,
-                    ),
-                  ),
+                  Text(formattedDate),
                 ],
               ),
             ),
+            if (canCancel)
+              IconButton(
+                icon: const Icon(Icons.cancel, color: Colors.red),
+                onPressed: () {
+                  controller.cancelTransaction(transaction['id']);
+                },
+              ),
           ],
         ),
       ),

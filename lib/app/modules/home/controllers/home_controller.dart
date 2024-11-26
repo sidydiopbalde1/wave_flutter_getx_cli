@@ -1,9 +1,9 @@
-// home_controller.dart
 import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../routes/app_pages.dart';
 import 'package:logger/logger.dart';
+import 'package:flutter/material.dart';
 
 class HomeController extends GetxController {
   // Instances Firebase
@@ -27,35 +27,49 @@ class HomeController extends GetxController {
   }
 
   Future<void> _initializeData() async {
-    await Future.wait([
-      fetchBalance(),
-      fetchUserTransactions(),
-      fetchUserPhone(),
-    ]);
+    try {
+      isLoading.value = true;
+      await Future.wait([
+        fetchBalance(),
+        fetchUserTransactions(),
+        fetchUserPhone(),
+      ]);
+    } catch (e) {
+      logger.e('Erreur lors de l\'initialisation: $e');
+      _showError('Erreur lors du chargement des données');
+    } finally {
+      isLoading.value = false;
+    }
   }
 
   void toggleBalanceVisibility() => isBalanceVisible.toggle();
 
-Future<void> fetchBalance() async {
-  try {
-    final user = _auth.currentUser;
-    if (user != null) {
-      logger.i('Fetching balance for user: ${user.uid}');
+  Future<void> fetchBalance() async {
+    try {
+      final user = _auth.currentUser;
+      if (user != null) {
+        logger.i('Fetching balance for user: ${user.uid}');
 
-      // Écoute en temps réel des changements dans le document utilisateur
-      _firestore.collection('users').doc(user.uid).snapshots().listen((docSnapshot) {
-        if (docSnapshot.exists) {
-          balance.value = (docSnapshot.data()?['solde'] ?? 0).toDouble();
-        } else {
-          logger.w('Profil utilisateur non trouvé');
-        }
-      });
+        _firestore.collection('users').doc(user.uid).snapshots().listen(
+          (docSnapshot) {
+            if (docSnapshot.exists) {
+              balance.value = (docSnapshot.data()?['solde'] ?? 0).toDouble();
+            } else {
+              logger.w('Profil utilisateur non trouvé');
+            }
+          },
+          onError: (e) {
+            logger.e('Erreur dans le stream du solde: $e');
+            _showError('Erreur de mise à jour du solde');
+          },
+        );
+      }
+    } catch (e) {
+      logger.e('Erreur lors de la récupération du solde: $e');
+      _showError('Impossible de récupérer le solde');
     }
-  } catch (e) {
-    logger.e('Erreur lors de la récupération du solde en temps réel: $e');
-    _showError('Impossible de récupérer le solde');
   }
-}
+
   Future<void> fetchUserPhone() async {
     try {
       final user = _auth.currentUser;
@@ -68,6 +82,7 @@ Future<void> fetchBalance() async {
       }
     } catch (e) {
       logger.e('Erreur lors de la récupération du numéro de téléphone: $e');
+      _showError('Erreur lors de la récupération du numéro de téléphone');
     }
   }
 
@@ -75,7 +90,6 @@ Future<void> fetchBalance() async {
     try {
       final user = _auth.currentUser;
       if (user != null && userPhone.value.isNotEmpty) {
-        // Création d'un objet JSON avec les informations de l'utilisateur
         final Map<String, String> userData = {
           'userId': user.uid,
           'telephone': userPhone.value,
@@ -89,61 +103,188 @@ Future<void> fetchBalance() async {
     }
   }
 
-Future<void> fetchUserTransactions() async {
-  try {
-    final user = _auth.currentUser;
+  Future<void> fetchUserTransactions() async {
+    try {
+      final user = _auth.currentUser;
+      if (user != null) {
+        logger.i('Fetching transactions for user: ${user.uid}');
 
-    if (user != null) {
-      logger.i('Fetching transactions for user: ${user.uid}');
-
-      // Écoute en temps réel des transactions
-      _firestore
-          .collection('transactions')
-          .where('senderId', isEqualTo: user.uid)
-          .orderBy('date', descending: true)
-          .snapshots()
-          .listen((querySnapshot) {
-        _processTransactions(querySnapshot, user.uid);
-      });
+        _firestore
+            .collection('transactions')
+            .where(Filter.or(
+            Filter('senderId', isEqualTo: user.uid),
+            Filter('receiverId', isEqualTo: user.uid),
+            ))
+            .orderBy('date', descending: true)
+            .snapshots()
+            .listen(
+          (querySnapshot) {
+            _processTransactions(querySnapshot, user.uid);
+          },
+          onError: (e) {
+            logger.e('Erreur dans le stream des transactions: $e');
+            _showError('Erreur de mise à jour des transactions');
+          },
+        );
+      }
+    } catch (e) {
+      logger.e('Erreur lors de la récupération des transactions: $e');
+      _showError('Impossible de récupérer vos transactions');
     }
-  } catch (e) {
-    logger.e('Erreur lors de la récupération des transactions en temps réel: $e');
-    _showError('Impossible de récupérer vos transactions');
   }
-}
 
-void _processTransactions(QuerySnapshot snapshot, String userId) {
-  final fetchedTransactions = snapshot.docs.map((doc) {
-    final data = doc.data() as Map<String, dynamic>;
+  void _processTransactions(QuerySnapshot snapshot, String userId) {
+    try {
+      final fetchedTransactions = snapshot.docs.map((doc) {
+        final data = doc.data() as Map<String, dynamic>;
+        final Timestamp timestamp = data['date'] as Timestamp;
+        final DateTime dateTime = timestamp.toDate();
 
-    // Conversion de 'date' en DateTime
-    final Timestamp timestamp = data['date'] as Timestamp;
-    final DateTime dateTime = timestamp.toDate();
+        return {
+          'id': doc.id,
+          'senderId': data['senderId'],
+          'receiverId': data['receiverId'],
+          'montant': data['montant'],
+          'recipientName': data['recipientName'],
+          'date': dateTime,
+          'status': data['status'] ?? 'completed',
+        };
+      }).toList();
 
-    return {
-      'id': doc.id,
-      'senderId': data['senderId'],
-      'receiverId': data['receiverId'], // Assurez-vous que ce champ existe dans vos données
-      'montant': data['montant'],
-      'date': dateTime,
-    };
-  }).toList();
-
-  // Mise à jour réactive
-  transactions.assignAll(fetchedTransactions);
-  logger.d('Transactions mises à jour : $transactions');
-
-  _calculateTotals(fetchedTransactions, userId);
-}
+      transactions.assignAll(fetchedTransactions);
+      _calculateTotals(fetchedTransactions, userId);
+      logger.d('Transactions mises à jour: ${transactions.length} transactions');
+    } catch (e) {
+      logger.e('Erreur lors du traitement des transactions: $e');
+    }
+  }
 
   void _calculateTotals(List<Map<String, dynamic>> transactionsList, String userId) {
-    totalSent.value = transactionsList
-        .where((t) => t['senderId'] == userId)
-        .fold(0.0, (sum, t) => sum + (t['montant'] ?? 0.0));
+    try {
+      totalSent.value = transactionsList
+          .where((t) => 
+              t['senderId'] == userId && 
+              t['status'] != 'cancelled')
+          .fold(0.0, (sum, t) => sum + (t['montant'] ?? 0.0));
 
-    totalReceived.value = transactionsList
-        .where((t) => t['receiverId'] == userId)
-        .fold(0.0, (sum, t) => sum + (t['montant'] ?? 0.0));
+      totalReceived.value = transactionsList
+          .where((t) => 
+              t['receiverId'] == userId && 
+              t['status'] != 'cancelled')
+          .fold(0.0, (sum, t) => sum + (t['montant'] ?? 0.0));
+    } catch (e) {
+      logger.e('Erreur lors du calcul des totaux: $e');
+    }
+  }
+
+  bool canCancelTransaction(dynamic transactionDate) {
+    print(transactionDate);
+    // Vérifier que transactionDate peut être converti en DateTime
+    if (transactionDate is DateTime) {
+      // Convertir la date de la transaction en DateTime
+      final DateTime transactionDateTime = transactionDate;
+      // Calculer la différence entre maintenant et la date de la transaction
+      final Duration difference = DateTime.now().difference(transactionDateTime);
+      print(difference.inMinutes <= 30);
+      // Vérifier si la différence est inférieure ou égale à 30 minutes
+      return difference.inMinutes <= 30;
+    }
+    // Retourne faux si transactionDate n'est pas du type attendu
+    return false;
+  }
+
+
+
+  Future<void> cancelTransaction(String transactionId) async {
+    try {
+      isLoading.value = true;
+      print(transactionId);
+      // Récupérer les détails de la transaction
+      final transactionDoc = await _firestore
+          .collection('transactions')
+          .doc(transactionId)
+          .get();
+      print(transactionDoc);
+      if (!transactionDoc.exists) {
+        throw 'Transaction non trouvée';
+      }
+
+      final transactionData = transactionDoc.data()!;
+      print(transactionData);
+      
+      if (transactionData['status'] == 'cancelled') {
+        throw 'Cette transaction est déjà annulée';
+      }
+
+      final DateTime transactionDate = (transactionData['date'] ).toDate();
+
+      // Vérifier si la transaction peut être annulée (moins de 30 minutes)
+      if (!canCancelTransaction(transactionDate)) {
+        throw 'Cette transaction ne peut plus être annulée (délai de 30 minutes dépassé)';
+      }
+
+      // Commencer une transaction Firestore
+      await _firestore.runTransaction((transaction) async {
+        // Vérifier les soldes et effectuer les transferts
+        final senderDoc = _firestore
+            .collection('users')
+            .doc(transactionData['senderId']);
+            print(senderDoc);
+        final receiverDoc = _firestore
+            .collection('users')
+            .doc(transactionData['receiverId']);
+            print(receiverDoc);
+
+        final senderSnapshot = await transaction.get(senderDoc);
+        print(senderSnapshot);
+        final receiverSnapshot = await transaction.get(receiverDoc);
+        print(receiverSnapshot);
+        if (!senderSnapshot.exists || !receiverSnapshot.exists) {
+          throw 'Utilisateur non trouvé';
+        }
+
+        final double currentSenderBalance = senderSnapshot.data()!['solde'] ?? 0.0;
+        final double currentReceiverBalance = receiverSnapshot.data()!['solde'] ?? 0.0;
+        final double amount = transactionData['montant'];
+
+        if (currentReceiverBalance < amount) {
+          throw 'Le destinataire ne dispose pas de fonds suffisants pour l\'annulation';
+        }
+
+        // Mettre à jour les soldes
+        transaction.update(senderDoc, {
+          'solde': currentSenderBalance + amount
+        });
+        transaction.update(receiverDoc, {
+          'solde': currentReceiverBalance - amount
+        });
+
+        // Marquer la transaction comme annulée
+        transaction.update(
+          transactionDoc.reference,
+          {
+            'status': 'cancelled',
+            'cancelledAt': FieldValue.serverTimestamp(),
+          },
+        );
+      });
+
+      Get.snackbar(
+        'Succès',
+        'La transaction a été annulée avec succès',
+        snackPosition: SnackPosition.TOP,
+        backgroundColor: Colors.green,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 3),
+      );
+
+      await refreshData();
+    } catch (e) {
+      logger.e('Erreur lors de l\'annulation de la transaction: $e');
+      _showError(e.toString());
+    } finally {
+      isLoading.value = false;
+    }
   }
 
   Future<void> signOut() async {

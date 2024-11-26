@@ -2,55 +2,69 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../controllers/distributor_controller.dart';
 import 'package:intl/intl.dart';
-import '../../qr_scanner_page/views/qr_scanner_page_view.dart'; // Import du scanner QR
+import '../../qr_scanner_page/views/qr_scanner_page_view.dart';
 
 class DistributorView extends StatelessWidget {
   final DistributorController controller = Get.put(DistributorController());
 
   DistributorView({Key? key}) : super(key: key);
 
-  String _formatDate(String date) {
-    final DateTime dateTime = DateTime.parse(date);
-    return DateFormat('dd/MM/yyyy HH:mm').format(dateTime);
+  String _formatDate(DateTime date) {
+    return DateFormat('dd/MM/yyyy HH:mm').format(date);
   }
 
   @override
   Widget build(BuildContext context) {
-    controller.fetchBalance();
-    controller.fetchUserTransactions();
-
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Mon Portefeuille'),
+        title: const Text('Feeling Finance'),
         centerTitle: true,
         elevation: 0,
         backgroundColor: const Color(0xFF2F5CA8),
-      ),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFF2F5CA8), Color(0xFFF5F6FA)],
-            stops: [0.0, 0.3],
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () => _showLogoutDialog(context),
           ),
-        ),
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildSoldeCard(),
-                const SizedBox(height: 24),
-                _buildServicesGrid(context),
-                const SizedBox(height: 24),
-                _buildTransactionsSection(),
-              ],
+        ],
+      ),
+      body: Obx(() {
+        if (controller.isLoading.value) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        return Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFF2F5CA8), Color(0xFFF5F6FA)],
+              stops: [0.0, 0.3],
             ),
           ),
-        ),
-      ),
+          child: RefreshIndicator(
+            onRefresh: () async {
+              await controller.fetchBalance();
+              await controller.fetchUserTransactions();
+            },
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildSoldeCard(),
+                    const SizedBox(height: 24),
+                    _buildServicesGrid(context),
+                    const SizedBox(height: 24),
+                    _buildTransactionsSection(),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      }),
     );
   }
 
@@ -89,7 +103,7 @@ class DistributorView extends StatelessWidget {
                   children: [
                     Text(
                       controller.afficherSolde.value
-                          ? '${controller.balance.value.toStringAsFixed(2)} XOF'
+                          ? '${NumberFormat("#,##0", "fr_FR").format(controller.balance.value)} XOF'
                           : '••••••',
                       style: const TextStyle(
                         fontSize: 32,
@@ -104,6 +118,24 @@ class DistributorView extends StatelessWidget {
                       color: Colors.grey,
                     ),
                   ],
+                ),
+              )),
+          const SizedBox(height: 16),
+          const Text(
+            'Plafond',
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.grey,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Obx(() => Text(
+                '${NumberFormat("#,##0", "fr_FR").format(controller.plafond.value)} XOF',
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF2F5CA8),
                 ),
               )),
         ],
@@ -211,6 +243,12 @@ class DistributorView extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Obx(() {
+            if (controller.isLoading.value) {
+              return const Center(
+                child: CircularProgressIndicator(),
+              );
+            }
+
             if (controller.transactions.isEmpty) {
               return const Center(
                 child: Padding(
@@ -231,6 +269,7 @@ class DistributorView extends StatelessWidget {
                 ),
               );
             }
+
             return ListView.separated(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
@@ -248,8 +287,9 @@ class DistributorView extends StatelessWidget {
   }
 
   Widget _buildTransactionItem(Map<String, dynamic> transaction) {
-    final bool isDeposit = transaction['type'] == 'transfert';
-    final Color color = isDeposit ? const Color(0xFF4CAF50) : const Color(0xFFE53935);
+    final bool isReceived = transaction['receiverId'] == controller.getCurrentUserId();
+    final Color color = isReceived ? const Color(0xFF4CAF50) : const Color(0xFFE53935);
+    final String montant = NumberFormat("#,##0", "fr_FR").format(transaction['montant']);
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
@@ -262,7 +302,7 @@ class DistributorView extends StatelessWidget {
               shape: BoxShape.circle,
             ),
             child: Icon(
-              isDeposit ? Icons.arrow_downward : Icons.arrow_upward,
+              isReceived ? Icons.arrow_downward : Icons.arrow_upward,
               color: color,
               size: 20,
             ),
@@ -280,7 +320,7 @@ class DistributorView extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  _formatDate(transaction['date'].toString()),
+                  _formatDate(transaction['date']),
                   style: const TextStyle(
                     color: Colors.grey,
                     fontSize: 14,
@@ -290,7 +330,7 @@ class DistributorView extends StatelessWidget {
             ),
           ),
           Text(
-            '${isDeposit ? '+' : '-'}${transaction['montant']} XOF',
+            '${isReceived ? '+' : '-'}$montant XOF',
             style: TextStyle(
               color: color,
               fontWeight: FontWeight.bold,
@@ -304,5 +344,30 @@ class DistributorView extends StatelessWidget {
 
   void _navigateToQRScanner(BuildContext context, String serviceType) {
     Get.to(() => QRScannerPageView(serviceType: serviceType));
+  }
+
+  void _showLogoutDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Déconnexion'),
+          content: const Text('Voulez-vous vraiment vous déconnecter ?'),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Annuler'),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+            TextButton(
+              child: const Text('Déconnexion'),
+              onPressed: () {
+                Navigator.of(context).pop();
+                controller.signOut();
+              },
+            ),
+          ],
+        );
+      },
+    );
   }
 }

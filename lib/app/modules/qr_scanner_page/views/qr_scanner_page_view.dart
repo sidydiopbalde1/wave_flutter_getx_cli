@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../distributor/controllers/distributor_controller.dart';
+import '../../transaction/views/transaction_form_view.dart';
 
 class QRScannerPageView extends StatefulWidget {
   final String serviceType;
@@ -19,7 +20,6 @@ class _QRScannerViewState extends State<QRScannerPageView> {
   @override
   void initState() {
     super.initState();
-    // Initialize the DistributorController
     _controller = Get.find<DistributorController>();
   }
 
@@ -40,7 +40,7 @@ class _QRScannerViewState extends State<QRScannerPageView> {
                 final String code = barcodes.first.rawValue ?? '';
                 if (code.isNotEmpty) {
                   isScanned = true;
-                  _processQRCode(code);
+                  _handleScannedQRCode(code);
                 }
               }
             },
@@ -55,7 +55,6 @@ class _QRScannerViewState extends State<QRScannerPageView> {
     );
   }
 
-  // Overlay de texte avec des instructions à l'écran
   Widget _buildInstructionOverlay() {
     return Positioned(
       bottom: 50,
@@ -80,127 +79,12 @@ class _QRScannerViewState extends State<QRScannerPageView> {
     );
   }
 
-  // Traitement du QR code scanné
-  void _processQRCode(String qrData) {
-    // MobileScanner().stop(); // Arrêter le scanner après la détection du QR code
-    _showAmountDialog(qrData); // Afficher le dialog pour entrer le montant
-  }
-
-  // Affichage d'une boîte de dialogue pour saisir le montant
-  void _showAmountDialog(String qrData) {
-    final TextEditingController montantController = TextEditingController();
-    final String scannedPhoneNumber = qrData;
-    print(qrData);
-
-    Get.dialog(
-      AlertDialog(
-        title: Text('Montant pour ${widget.serviceType}'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildScannedPhoneCard(scannedPhoneNumber),
-            const SizedBox(height: 16),
-            _buildAmountInputField(montantController),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              isScanned = false; // Réinitialiser l'état du scan
-              // MobileScanner().start(); // Relancer le scanner
-              Get.back();
-            },
-            child: const Text('Annuler'),
-          ),
-          ElevatedButton(
-            onPressed: () => _processTransaction(
-              montantController.text,
-              scannedPhoneNumber,
-            ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF2F5CA8),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            child: const Text('Confirmer'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Carte d'affichage du numéro de téléphone scanné
-  Widget _buildScannedPhoneCard(String phoneNumber) {
-    return Card(
-      child: ListTile(
-        leading: const Icon(Icons.phone, color: Color(0xFF2F5CA8)),
-        title: const Text('Téléphone scanné'),
-        subtitle: Text(phoneNumber),
-      ),
-    );
-  }
-
-  // Champ pour saisir le montant
-  Widget _buildAmountInputField(TextEditingController controller) {
-    return TextField(
-      controller: controller,
-      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-      decoration: InputDecoration(
-        labelText: 'Montant en XOF',
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-        prefixIcon: const Icon(Icons.money),
-        suffixText: 'XOF',
-      ),
-      autofocus: true,
-    );
-  }
-
-  // Traitement de la transaction après confirmation
-  void _processTransaction(String montant, String phoneNumber) async {
-    final double? amount = double.tryParse(montant.replaceAll(',', '.'));
-    print(amount);
-    if (amount == null) {
-      Get.snackbar(
-        'Erreur',
-        'Veuillez entrer un montant valide',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.red.withOpacity(0.1),
-        colorText: Colors.red,
-        duration: const Duration(seconds: 3),
-      );
-      return;
-    }
-
-    String message;
-    try {
-      switch (widget.serviceType) {
-        case 'Retrait':
-          message = await _controller.effectuerRetrait(amount, phoneNumber);
-          break;
-        case 'Dépôt':
-          message = await _controller.effectuerDepot(amount, phoneNumber);
-          break;
-        case 'Déplafonnement':
-          message = await _controller.deplafonnerUtilisateur(amount, phoneNumber);
-          break;
-        default:
-          message = 'Type de service non reconnu';
-      }
-
- 
-    } catch (e) {
-      // Get.snackbar(
-      //   'Erreur',
-      //   'Une erreur est survenue lors de la transaction',
-      //   snackPosition: SnackPosition.BOTTOM,
-      //   backgroundColor: Colors.red.withOpacity(0.1),
-      //   colorText: Colors.red,
-      //   duration: const Duration(seconds: 3),
-      // );
-    }
+  void _handleScannedQRCode(String qrData) {
+    // Naviguer vers TransactionFormView avec les données scannées
+    Get.to(() => TransactionFormView(
+          serviceType: widget.serviceType,
+          phoneNumber: qrData,
+        ));
   }
 }
 
