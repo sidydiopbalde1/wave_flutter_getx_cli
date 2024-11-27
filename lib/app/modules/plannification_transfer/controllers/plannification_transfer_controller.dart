@@ -101,7 +101,7 @@ class PlannificationTransferController extends GetxController {
         'date': DateTime.now(),
         'id': docRef.id,
         'senderId': userId,
-        'recipientId': recipientDoc.docs.first.id,
+        'receiverId': recipientDoc.docs.first.id,
         'telephone': recipientController.text,
         'recipientName': recipientData['nom'] ?? 'Inconnu',
         'montant': amount,
